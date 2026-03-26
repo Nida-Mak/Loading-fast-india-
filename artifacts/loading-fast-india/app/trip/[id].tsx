@@ -6,6 +6,7 @@ import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApp, TripStatus } from "@/context/AppContext";
+
+const COMMISSION_UPI = "maksudsaiyed888@oksbi";
 
 function formatCurrency(amount: number) {
   return "₹" + amount.toLocaleString("en-IN");
@@ -178,6 +181,7 @@ export default function TripDetailScreen() {
 
   const trip = useMemo(() => trips.find((t) => t.id === id), [trips, id]);
   const [loading, setLoading] = useState(false);
+  const [upiOpened, setUpiOpened] = useState(false);
 
   if (!trip) {
     return (
@@ -217,11 +221,30 @@ export default function TripDetailScreen() {
   const merchantContactUnlocked =
     trip.commissionPaid && trip.driverId === user?.id;
 
-  const handlePayCommission = async () => {
+  const handleOpenUPI = async () => {
+    if (!trip) return;
+    const note = encodeURIComponent(`LFI Commission - ${trip.biltyNumber}`);
+    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=Loading%20Fast%20India&am=${trip.lfiCommission}&cu=INR&tn=${note}`;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const supported = await Linking.canOpenURL(upiUrl);
+      if (supported) {
+        await Linking.openURL(upiUrl);
+      } else {
+        await Linking.openURL("https://pay.google.com/");
+      }
+    } catch {
+      await Linking.openURL("https://pay.google.com/");
+    }
+    setUpiOpened(true);
+  };
+
+  const handleConfirmPayment = async () => {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await payCommissionAndAccept(trip.id);
+      setUpiOpened(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Trip Confirm Ho Gayi! ✅",
@@ -482,10 +505,10 @@ export default function TripDetailScreen() {
         <View
           style={[styles.actionBar, { paddingBottom: insets.bottom + 16 }]}
         >
-          {canPayCommission && (
+          {canPayCommission && !upiOpened && (
             <Pressable
               style={styles.actionBtn}
-              onPress={handlePayCommission}
+              onPress={handleOpenUPI}
               disabled={loading}
             >
               <LinearGradient
@@ -494,23 +517,50 @@ export default function TripDetailScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons
-                      name="cash-check"
-                      size={20}
-                      color="#fff"
-                    />
-                    <View>
-                      <Text style={styles.actionBtnText}>Commission Pay Karo — {formatCurrency(trip.lfiCommission)}</Text>
-                      <Text style={styles.actionBtnSub}>Trip confirm hogi • Merchant ka contact milega</Text>
-                    </View>
-                  </>
-                )}
+                <MaterialCommunityIcons name="cellphone-nfc" size={20} color="#fff" />
+                <View>
+                  <Text style={styles.actionBtnText}>
+                    UPI Se Pay Karo — {formatCurrency(trip.lfiCommission)}
+                  </Text>
+                  <Text style={styles.actionBtnSub}>
+                    PhonePe / GPay / BHIM • {COMMISSION_UPI}
+                  </Text>
+                </View>
               </LinearGradient>
             </Pressable>
+          )}
+          {canPayCommission && upiOpened && (
+            <>
+              <Pressable
+                style={styles.actionBtn}
+                onPress={handleConfirmPayment}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={[Colors.success, "#008844"]}
+                  style={styles.actionBtnGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
+                      <Text style={styles.actionBtnText}>Maine Pay Kar Diya ✓</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                style={styles.reOpenUpiBtn}
+                onPress={handleOpenUPI}
+                disabled={loading}
+              >
+                <MaterialCommunityIcons name="refresh" size={16} color={Colors.primary} />
+                <Text style={styles.reOpenUpiBtnText}>UPI App Dobara Kholo</Text>
+              </Pressable>
+            </>
           )}
           {canStart && (
             <Pressable
@@ -891,6 +941,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: "rgba(255,255,255,0.75)",
     marginTop: 2,
+  },
+  reOpenUpiBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  reOpenUpiBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.primary,
   },
   cancelBtn: {
     flexDirection: "row",

@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -16,6 +17,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { Trip, useApp } from "@/context/AppContext";
+
+const COMMISSION_UPI = "maksudsaiyed888@oksbi";
+const UPI_NAME = "Loading%20Fast%20India";
 
 function formatCurrency(amount: number) {
   return "₹" + amount.toLocaleString("en-IN");
@@ -54,7 +58,30 @@ function CommissionModal({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const [upiOpened, setUpiOpened] = useState(false);
+
+  React.useEffect(() => {
+    if (!visible) setUpiOpened(false);
+  }, [visible]);
+
   if (!trip) return null;
+
+  const openUPI = async () => {
+    const note = encodeURIComponent(`LFI Commission - ${trip.biltyNumber}`);
+    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=${UPI_NAME}&am=${trip.lfiCommission}&cu=INR&tn=${note}`;
+    try {
+      const supported = await Linking.canOpenURL(upiUrl);
+      if (supported) {
+        await Linking.openURL(upiUrl);
+      } else {
+        await Linking.openURL(`https://pay.google.com/`);
+      }
+    } catch {
+      await Linking.openURL(`https://pay.google.com/`);
+    }
+    setUpiOpened(true);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -68,13 +95,21 @@ function CommissionModal({
 
           <View style={modalStyles.iconRow}>
             <View style={modalStyles.iconCircle}>
-              <MaterialCommunityIcons name="shield-check" size={32} color={Colors.primary} />
+              <MaterialCommunityIcons
+                name={upiOpened ? "check-circle" : "shield-check"}
+                size={32}
+                color={upiOpened ? Colors.success : Colors.primary}
+              />
             </View>
           </View>
 
-          <Text style={modalStyles.title}>Commission Pay Karo</Text>
+          <Text style={modalStyles.title}>
+            {upiOpened ? "Payment Ho Gaya?" : "Commission Pay Karo"}
+          </Text>
           <Text style={modalStyles.subtitle}>
-            Trip confirm karne ke liye LFI commission pay karein
+            {upiOpened
+              ? "UPI app mein payment complete karke wapas aayein"
+              : "Trip confirm karne ke liye LFI commission pay karein"}
           </Text>
 
           <View style={modalStyles.tripSummary}>
@@ -111,19 +146,50 @@ function CommissionModal({
             </View>
           </View>
 
-          <View style={modalStyles.lockNote}>
-            <MaterialCommunityIcons name="lock" size={14} color={Colors.warning} />
-            <Text style={modalStyles.lockNoteText}>
-              Commission pay karne ke baad merchant ka phone number aur location milega
-            </Text>
+          <View style={modalStyles.upiBox}>
+            <MaterialCommunityIcons name="bank-transfer" size={16} color={Colors.textMuted} />
+            <View style={{ flex: 1 }}>
+              <Text style={modalStyles.upiLabel}>UPI ID — Loading Fast India</Text>
+              <Text style={modalStyles.upiId}>{COMMISSION_UPI}</Text>
+            </View>
           </View>
 
-          <Pressable style={modalStyles.payBtn} onPress={onConfirm}>
-            <MaterialCommunityIcons name="cash-check" size={20} color="#fff" />
-            <Text style={modalStyles.payBtnText}>
-              Commission Pay Karo — {formatCurrency(trip.lfiCommission)}
-            </Text>
-          </Pressable>
+          {!upiOpened ? (
+            <>
+              <View style={modalStyles.lockNote}>
+                <MaterialCommunityIcons name="lock" size={14} color={Colors.warning} />
+                <Text style={modalStyles.lockNoteText}>
+                  Commission pay karne ke baad merchant ka phone number aur location milega
+                </Text>
+              </View>
+
+              <Pressable style={modalStyles.payBtn} onPress={openUPI}>
+                <MaterialCommunityIcons name="cellphone-nfc" size={20} color="#fff" />
+                <Text style={modalStyles.payBtnText}>
+                  UPI Se Pay Karo — {formatCurrency(trip.lfiCommission)}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <View style={modalStyles.successNote}>
+                <MaterialCommunityIcons name="information" size={14} color={Colors.info} />
+                <Text style={modalStyles.successNoteText}>
+                  UPI app mein payment complete karke "Maine Pay Kar Diya" dabayein
+                </Text>
+              </View>
+
+              <Pressable style={modalStyles.confirmedBtn} onPress={onConfirm}>
+                <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
+                <Text style={modalStyles.payBtnText}>Maine Pay Kar Diya ✓</Text>
+              </Pressable>
+
+              <Pressable style={modalStyles.rePayBtn} onPress={openUPI}>
+                <MaterialCommunityIcons name="refresh" size={16} color={Colors.primary} />
+                <Text style={modalStyles.rePayBtnText}>UPI App Dobara Kholo</Text>
+              </Pressable>
+            </>
+          )}
 
           <Pressable style={modalStyles.cancelBtn} onPress={onClose}>
             <Text style={modalStyles.cancelBtnText}>Baad Mein</Text>
@@ -792,6 +858,28 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  upiBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#001F40",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#003366",
+  },
+  upiLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  upiId: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.info,
+    marginTop: 1,
+  },
   payBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -801,10 +889,51 @@ const modalStyles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
   },
+  confirmedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.success,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+  rePayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  rePayBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.primary,
+  },
   payBtnText: {
     fontSize: 15,
     fontFamily: "Inter_700Bold",
     color: "#fff",
+  },
+  successNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#001F40",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#003366",
+  },
+  successNoteText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.info,
+    flex: 1,
+    lineHeight: 18,
   },
   cancelBtn: {
     alignItems: "center",
