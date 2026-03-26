@@ -523,7 +523,7 @@ export default function TripDetailScreen() {
                     UPI Se Pay Karo — {formatCurrency(trip.lfiCommission)}
                   </Text>
                   <Text style={styles.actionBtnSub}>
-                    PhonePe / GPay / BHIM • {COMMISSION_UPI}
+                    Loading Fast India • PhonePe / GPay / BHIM
                   </Text>
                 </View>
               </LinearGradient>

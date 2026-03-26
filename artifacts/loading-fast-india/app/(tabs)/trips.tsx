@@ -147,10 +147,17 @@ function CommissionModal({
           </View>
 
           <View style={modalStyles.upiBox}>
-            <MaterialCommunityIcons name="bank-transfer" size={16} color={Colors.textMuted} />
+            <View style={modalStyles.upiLogoCircle}>
+              <MaterialCommunityIcons name="truck-fast" size={18} color={Colors.primary} />
+            </View>
             <View style={{ flex: 1 }}>
-              <Text style={modalStyles.upiLabel}>UPI ID — Loading Fast India</Text>
+              <Text style={modalStyles.upiCompanyName}>Loading Fast India</Text>
+              <Text style={modalStyles.upiLabel}>Commission Payment • UPI ID:</Text>
               <Text style={modalStyles.upiId}>{COMMISSION_UPI}</Text>
+            </View>
+            <View style={modalStyles.verifiedBadge}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={Colors.success} />
+              <Text style={modalStyles.verifiedText}>Verified</Text>
             </View>
           </View>
 
@@ -862,23 +869,55 @@ const modalStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#001F40",
-    borderRadius: 10,
+    backgroundColor: "#001830",
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
+    paddingVertical: 12,
+    borderWidth: 1.5,
     borderColor: "#003366",
   },
+  upiLogoCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1A0A00",
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  upiCompanyName: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    marginBottom: 1,
+  },
   upiLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
   },
   upiId: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
     color: Colors.info,
-    marginTop: 1,
+    marginTop: 2,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#002A1A",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  verifiedText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
   },
   payBtn: {
     flexDirection: "row",
