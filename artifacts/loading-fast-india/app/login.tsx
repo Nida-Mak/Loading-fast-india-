@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { useApp, UserRole } from "@/context/AppContext";
+import { ADMIN_PIN, useApp, UserRole } from "@/context/AppContext";
 
 const { width } = Dimensions.get("window");
 
@@ -75,12 +75,16 @@ export default function LoginScreen() {
   const [gstNumber, setGstNumber] = useState("");
   const [aadhaarHidden, setAadhaarHidden] = useState(true);
 
+  const [adminPin, setAdminPin] = useState("");
+  const [showAdminPin, setShowAdminPin] = useState(false);
+
   const [errors, setErrors] = useState<{
     name?: string;
     phone?: string;
     businessName?: string;
     aadhaar?: string;
     gst?: string;
+    adminPin?: string;
   }>({});
 
   const formatAadhaar = (raw: string) => {
@@ -110,6 +114,13 @@ export default function LoginScreen() {
       const rawGst = gstNumber.replace(/\s/g, "");
       if (rawGst && rawGst.length !== 15) {
         errs.gst = "GST number must be 15 characters (e.g. 22AAAAA0000A1Z5)";
+      }
+    }
+    if (selectedRole === "admin") {
+      if (!adminPin.trim()) {
+        errs.adminPin = "Admin PIN required";
+      } else if (adminPin.trim() !== ADMIN_PIN) {
+        errs.adminPin = "Galat PIN — Access denied";
       }
     }
     setErrors(errs);
@@ -451,6 +462,70 @@ export default function LoginScreen() {
                   />
                   <Text style={styles.aadhaarNoteText}>
                     15-character GST Identification Number (GSTIN). Format: State Code + PAN + Entity.
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {selectedRole === "admin" && (
+              <>
+                <View style={[styles.merchantBanner, { backgroundColor: "#1A0A2E", borderColor: "#6A0DAD44" }]}>
+                  <MaterialCommunityIcons
+                    name="shield-crown-outline"
+                    size={16}
+                    color="#A855F7"
+                  />
+                  <Text style={[styles.merchantBannerText, { color: "#A855F7" }]}>
+                    Admin Access — Sirf authorized person ke liye
+                  </Text>
+                </View>
+
+                <Text style={styles.sectionLabel}>Admin Secret PIN</Text>
+
+                <View
+                  style={[
+                    styles.inputGroup,
+                    errors.adminPin ? styles.inputError : null,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="shield-lock-outline"
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Secret PIN daalen"
+                    placeholderTextColor={Colors.textMuted}
+                    value={adminPin}
+                    onChangeText={(v) => {
+                      setAdminPin(v);
+                      if (errors.adminPin)
+                        setErrors((e) => ({ ...e, adminPin: undefined }));
+                    }}
+                    secureTextEntry={!showAdminPin}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                  />
+                  <Pressable onPress={() => setShowAdminPin((s) => !s)}>
+                    <Ionicons
+                      name={showAdminPin ? "eye-off-outline" : "eye-outline"}
+                      size={18}
+                      color={Colors.textMuted}
+                    />
+                  </Pressable>
+                </View>
+                {errors.adminPin ? (
+                  <Text style={styles.errorText}>{errors.adminPin}</Text>
+                ) : null}
+                <View style={styles.aadhaarNote}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={12}
+                    color={Colors.textMuted}
+                  />
+                  <Text style={styles.aadhaarNoteText}>
+                    Yeh PIN sirf Loading Fast India ke owner ko pata hai.
                   </Text>
                 </View>
               </>

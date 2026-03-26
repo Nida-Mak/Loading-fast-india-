@@ -28,6 +28,7 @@ export interface User {
   businessName?: string;
   gstVerified?: boolean;
   city: string;
+  registeredAt?: string;
 }
 
 export interface Trip {
@@ -57,6 +58,7 @@ export interface Trip {
 interface AppContextValue {
   user: User | null;
   trips: Trip[];
+  registeredUsers: User[];
   isLoading: boolean;
   login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -68,11 +70,13 @@ interface AppContextValue {
   getMyTrips: () => Trip[];
   getAvailableTrips: () => Trip[];
   getEarnings: () => { total: number; commission: number; thisMonth: number; completedTrips: number };
+  removeUser: (userId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 const COMMISSION_RATE = 0.05;
+export const ADMIN_PIN = "LFI2024";
 
 const SAMPLE_TRIPS: Trip[] = [
   {
@@ -147,6 +151,7 @@ function generateBiltyNumber(): string {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -155,11 +160,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [userJson, tripsJson] = await Promise.all([
+      const [userJson, tripsJson, usersJson] = await Promise.all([
         AsyncStorage.getItem("lfi_user"),
         AsyncStorage.getItem("lfi_trips"),
+        AsyncStorage.getItem("lfi_users"),
       ]);
       if (userJson) setUser(JSON.parse(userJson));
+      if (usersJson) setRegisteredUsers(JSON.parse(usersJson));
       if (tripsJson) {
         setTrips(JSON.parse(tripsJson));
       } else {
@@ -177,6 +184,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem("lfi_trips", JSON.stringify(updatedTrips));
   };
 
+  const saveUsers = async (updatedUsers: User[]) => {
+    setRegisteredUsers(updatedUsers);
+    await AsyncStorage.setItem("lfi_users", JSON.stringify(updatedUsers));
+  };
+
   const login = useCallback(
     async (
       name: string,
@@ -192,10 +204,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         role,
         aadhaarVerified: false,
         city,
+        registeredAt: new Date().toISOString(),
         ...(extras ?? {}),
       };
       setUser(newUser);
       await AsyncStorage.setItem("lfi_user", JSON.stringify(newUser));
+
+      if (role !== "admin") {
+        const existingJson = await AsyncStorage.getItem("lfi_users");
+        const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
+        const withoutDuplicate = existing.filter((u) => u.phone !== phone);
+        const updated = [newUser, ...withoutDuplicate];
+        await saveUsers(updated);
+      }
     },
     []
   );
@@ -204,6 +225,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     await AsyncStorage.removeItem("lfi_user");
   }, []);
+
+  const removeUser = useCallback(
+    async (userId: string) => {
+      const updated = registeredUsers.filter((u) => u.id !== userId);
+      await saveUsers(updated);
+    },
+    [registeredUsers]
+  );
 
   const createTrip = useCallback(
     async (
@@ -360,6 +389,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       trips,
+      registeredUsers,
       isLoading,
       login,
       logout,
@@ -371,10 +401,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getMyTrips,
       getAvailableTrips,
       getEarnings,
+      removeUser,
     }),
     [
       user,
       trips,
+      registeredUsers,
       isLoading,
       login,
       logout,
@@ -386,6 +418,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getMyTrips,
       getAvailableTrips,
       getEarnings,
+      removeUser,
     ]
   );
 
