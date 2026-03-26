@@ -224,6 +224,10 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.contactText}>
             Grievance Officer — Loading Fast India, India
           </Text>
+          <View style={styles.gstRow}>
+            <Text style={styles.gstLabel}>GST No: </Text>
+            <Text style={styles.gstValue}>24BRLPS3959R1ZN</Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -402,5 +406,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
     color: Colors.primary,
+  },
+  gstRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    backgroundColor: "rgba(232, 93, 4, 0.08)",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  gstLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textMuted,
+  },
+  gstValue: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.primary,
+    letterSpacing: 1,
   },
 });

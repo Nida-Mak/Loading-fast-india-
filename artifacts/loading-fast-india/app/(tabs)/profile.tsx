@@ -441,7 +441,7 @@ export default function ProfileScreen() {
               onPress={() =>
                 Alert.alert(
                   "Loading Fast India",
-                  "India's fastest logistics platform. Version 1.0.0\n\nCommission-based platform connecting Merchants & Drivers."
+                  "India's fastest logistics platform. Version 1.0.0\n\nCommission-based platform connecting Merchants & Drivers.\n\nGST No: 24BRLPS3959R1ZN"
                 )
               }
             />
