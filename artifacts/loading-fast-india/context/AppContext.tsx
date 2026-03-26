@@ -23,6 +23,10 @@ export interface User {
   phone: string;
   role: UserRole;
   aadhaarVerified: boolean;
+  aadhaarNumber?: string;
+  gstNumber?: string;
+  businessName?: string;
+  gstVerified?: boolean;
   city: string;
 }
 
@@ -54,7 +58,7 @@ interface AppContextValue {
   user: User | null;
   trips: Trip[];
   isLoading: boolean;
-  login: (name: string, phone: string, role: UserRole, city: string) => Promise<void>;
+  login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
   createTrip: (trip: Omit<Trip, "id" | "biltyNumber" | "status" | "merchantId" | "merchantName" | "lfiCommission" | "driverEarning" | "createdAt">) => Promise<void>;
   acceptTrip: (tripId: string) => Promise<void>;
@@ -174,7 +178,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = useCallback(
-    async (name: string, phone: string, role: UserRole, city: string) => {
+    async (
+      name: string,
+      phone: string,
+      role: UserRole,
+      city: string,
+      extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }
+    ) => {
       const newUser: User = {
         id: generateId(),
         name,
@@ -182,6 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         role,
         aadhaarVerified: false,
         city,
+        ...(extras ?? {}),
       };
       setUser(newUser);
       await AsyncStorage.setItem("lfi_user", JSON.stringify(newUser));

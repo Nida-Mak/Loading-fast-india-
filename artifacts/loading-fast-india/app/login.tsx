@@ -68,15 +68,49 @@ export default function LoginScreen() {
   const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [showCities, setShowCities] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
+
+  // Merchant-specific fields
+  const [businessName, setBusinessName] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [aadhaarHidden, setAadhaarHidden] = useState(true);
+
+  const [errors, setErrors] = useState<{
+    name?: string;
+    phone?: string;
+    businessName?: string;
+    aadhaar?: string;
+    gst?: string;
+  }>({});
+
+  const formatAadhaar = (raw: string) => {
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 12);
+    return digits.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3").trim();
+  };
+
+  const formatGst = (raw: string) =>
+    raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15);
 
   const validate = () => {
-    const errs: { name?: string; phone?: string } = {};
+    const errs: typeof errors = {};
     if (!name.trim() || name.trim().length < 2) {
       errs.name = "Enter your full name";
     }
     if (!phone.trim() || phone.trim().length < 10) {
       errs.phone = "Enter valid 10-digit phone number";
+    }
+    if (selectedRole === "merchant") {
+      if (!businessName.trim()) {
+        errs.businessName = "Enter your business / firm name";
+      }
+      const rawAadhaar = aadhaarNumber.replace(/\s/g, "");
+      if (!rawAadhaar || rawAadhaar.length !== 12) {
+        errs.aadhaar = "Enter valid 12-digit Aadhaar number";
+      }
+      const rawGst = gstNumber.replace(/\s/g, "");
+      if (rawGst && rawGst.length !== 15) {
+        errs.gst = "GST number must be 15 characters (e.g. 22AAAAA0000A1Z5)";
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -90,7 +124,15 @@ export default function LoginScreen() {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await login(name.trim(), phone.trim(), selectedRole, selectedCity);
+      const extras =
+        selectedRole === "merchant"
+          ? {
+              businessName: businessName.trim(),
+              aadhaarNumber: aadhaarNumber.replace(/\s/g, ""),
+              gstNumber: gstNumber.trim() || undefined,
+            }
+          : undefined;
+      await login(name.trim(), phone.trim(), selectedRole, selectedCity, extras);
       router.replace("/(tabs)");
     } catch {
     } finally {
@@ -265,6 +307,153 @@ export default function LoginScreen() {
                   ))}
                 </ScrollView>
               </View>
+            )}
+
+            {selectedRole === "merchant" && (
+              <>
+                <View style={styles.merchantBanner}>
+                  <MaterialCommunityIcons
+                    name="store-check-outline"
+                    size={16}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.merchantBannerText}>
+                    Merchant KYC — Aadhaar aur GST se verify karein
+                  </Text>
+                </View>
+
+                <Text style={styles.sectionLabel}>Business Details</Text>
+
+                <View
+                  style={[
+                    styles.inputGroup,
+                    errors.businessName ? styles.inputError : null,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="domain"
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Business / Firm name"
+                    placeholderTextColor={Colors.textMuted}
+                    value={businessName}
+                    onChangeText={(v) => {
+                      setBusinessName(v);
+                      if (errors.businessName)
+                        setErrors((e) => ({ ...e, businessName: undefined }));
+                    }}
+                    returnKeyType="next"
+                  />
+                </View>
+                {errors.businessName ? (
+                  <Text style={styles.errorText}>{errors.businessName}</Text>
+                ) : null}
+
+                <Text style={styles.sectionLabel}>Aadhaar Card</Text>
+
+                <View
+                  style={[
+                    styles.inputGroup,
+                    errors.aadhaar ? styles.inputError : null,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="card-account-details-outline"
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="XXXX XXXX XXXX"
+                    placeholderTextColor={Colors.textMuted}
+                    value={aadhaarHidden ? aadhaarNumber.replace(/\d(?=\d{4})/g, "•") : aadhaarNumber}
+                    onChangeText={(v) => {
+                      const raw = v.replace(/[^0-9]/g, "");
+                      setAadhaarNumber(formatAadhaar(raw));
+                      if (errors.aadhaar)
+                        setErrors((e) => ({ ...e, aadhaar: undefined }));
+                    }}
+                    keyboardType="numeric"
+                    maxLength={14}
+                    secureTextEntry={aadhaarHidden}
+                  />
+                  <Pressable onPress={() => setAadhaarHidden((h) => !h)}>
+                    <Ionicons
+                      name={aadhaarHidden ? "eye-outline" : "eye-off-outline"}
+                      size={18}
+                      color={Colors.textMuted}
+                    />
+                  </Pressable>
+                </View>
+                {errors.aadhaar ? (
+                  <Text style={styles.errorText}>{errors.aadhaar}</Text>
+                ) : null}
+                <View style={styles.aadhaarNote}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={12}
+                    color={Colors.textMuted}
+                  />
+                  <Text style={styles.aadhaarNoteText}>
+                    12-digit number (aapka Aadhaar card). Securely encrypted.
+                  </Text>
+                </View>
+
+                <Text style={styles.sectionLabel}>
+                  GST Number{" "}
+                  <Text style={styles.optionalLabel}>(Optional)</Text>
+                </Text>
+
+                <View
+                  style={[
+                    styles.inputGroup,
+                    errors.gst ? styles.inputError : null,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="file-certificate-outline"
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={[styles.input, { textTransform: "uppercase" }]}
+                    placeholder="22AAAAA0000A1Z5"
+                    placeholderTextColor={Colors.textMuted}
+                    value={gstNumber}
+                    onChangeText={(v) => {
+                      setGstNumber(formatGst(v));
+                      if (errors.gst)
+                        setErrors((e) => ({ ...e, gst: undefined }));
+                    }}
+                    autoCapitalize="characters"
+                    maxLength={15}
+                    returnKeyType="done"
+                  />
+                  {gstNumber.length === 15 && (
+                    <MaterialCommunityIcons
+                      name="check-circle"
+                      size={18}
+                      color={Colors.success}
+                    />
+                  )}
+                </View>
+                {errors.gst ? (
+                  <Text style={styles.errorText}>{errors.gst}</Text>
+                ) : null}
+                <View style={styles.aadhaarNote}>
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={12}
+                    color={Colors.textMuted}
+                  />
+                  <Text style={styles.aadhaarNoteText}>
+                    15-character GST Identification Number (GSTIN). Format: State Code + PAN + Entity.
+                  </Text>
+                </View>
+              </>
             )}
 
             <Pressable
@@ -493,5 +682,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
+  },
+  merchantBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#1A0A00",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#3A1500",
+    marginTop: 4,
+  },
+  merchantBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.primary,
+  },
+  aadhaarNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginTop: -4,
+    paddingHorizontal: 4,
+  },
+  aadhaarNoteText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    lineHeight: 16,
+  },
+  optionalLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    textTransform: "none",
   },
 });

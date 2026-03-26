@@ -258,6 +258,13 @@ export default function ProfileScreen() {
               label="Personal Info"
               value={user?.name}
             />
+            {user?.role === "merchant" && user?.businessName ? (
+              <MenuItem
+                icon="domain"
+                label="Business Name"
+                value={user.businessName}
+              />
+            ) : null}
             <MenuItem
               icon="phone-outline"
               label="Phone Number"
@@ -270,6 +277,112 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
+
+        {user?.role === "merchant" && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>KYC & Documents</Text>
+            <View style={styles.menuGroup}>
+              {user?.aadhaarNumber ? (
+                <View style={styles.kycDocRow}>
+                  <View style={styles.kycDocIcon}>
+                    <MaterialCommunityIcons
+                      name="card-account-details"
+                      size={20}
+                      color={Colors.primary}
+                    />
+                  </View>
+                  <View style={styles.kycDocInfo}>
+                    <Text style={styles.kycDocLabel}>Aadhaar Card</Text>
+                    <Text style={styles.kycDocValue}>
+                      {"XXXX XXXX " + user.aadhaarNumber.slice(-4)}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.kycDocBadge,
+                      user.aadhaarVerified
+                        ? styles.kycBadgeVerified
+                        : styles.kycBadgePending,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={user.aadhaarVerified ? "check" : "clock-outline"}
+                      size={11}
+                      color={user.aadhaarVerified ? Colors.success : Colors.warning}
+                    />
+                    <Text
+                      style={[
+                        styles.kycDocBadgeText,
+                        {
+                          color: user.aadhaarVerified
+                            ? Colors.success
+                            : Colors.warning,
+                        },
+                      ]}
+                    >
+                      {user.aadhaarVerified ? "Verified" : "Pending"}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {user?.gstNumber ? (
+                <View style={styles.kycDocRow}>
+                  <View style={styles.kycDocIcon}>
+                    <MaterialCommunityIcons
+                      name="file-certificate"
+                      size={20}
+                      color={Colors.info}
+                    />
+                  </View>
+                  <View style={styles.kycDocInfo}>
+                    <Text style={styles.kycDocLabel}>GST Number</Text>
+                    <Text style={styles.kycDocValue}>{user.gstNumber}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.kycDocBadge,
+                      user.gstVerified
+                        ? styles.kycBadgeVerified
+                        : styles.kycBadgePending,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={user.gstVerified ? "check" : "clock-outline"}
+                      size={11}
+                      color={user.gstVerified ? Colors.success : Colors.warning}
+                    />
+                    <Text
+                      style={[
+                        styles.kycDocBadgeText,
+                        {
+                          color: user.gstVerified
+                            ? Colors.success
+                            : Colors.warning,
+                        },
+                      ]}
+                    >
+                      {user.gstVerified ? "Verified" : "Pending"}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {!user?.aadhaarNumber && !user?.gstNumber ? (
+                <View style={styles.noKycRow}>
+                  <MaterialCommunityIcons
+                    name="alert-circle-outline"
+                    size={16}
+                    color={Colors.warning}
+                  />
+                  <Text style={styles.noKycText}>
+                    No KYC documents submitted yet. Please re-register to add Aadhaar and GST.
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Business</Text>
@@ -561,5 +674,69 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     marginTop: 8,
+  },
+  kycDocRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  kycDocIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kycDocInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  kycDocLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  kycDocValue: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+    letterSpacing: 0.5,
+  },
+  kycDocBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  kycBadgeVerified: {
+    backgroundColor: "#002A1A",
+  },
+  kycBadgePending: {
+    backgroundColor: "#2A1F00",
+  },
+  kycDocBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  noKycRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  noKycText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    lineHeight: 19,
   },
 });
