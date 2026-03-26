@@ -12,8 +12,10 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { View } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import OfflineBanner from "@/components/OfflineBanner";
 import { AppProvider, useApp } from "@/context/AppContext";
 import Colors from "@/constants/colors";
 
@@ -118,7 +120,10 @@ export default function RootLayout() {
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
-                <RootLayoutNav />
+                <View style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                  <OfflineBanner />
+                </View>
               </KeyboardProvider>
             </GestureHandlerRootView>
           </AppProvider>
