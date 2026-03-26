@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,19 +22,25 @@ const CITIES = [
   "Hyderabad", "Pune", "Ahmedabad", "Jaipur", "Surat",
   "Lucknow", "Kanpur", "Nagpur", "Visakhapatnam", "Indore",
   "Thane", "Bhopal", "Patna", "Vadodara", "Ludhiana",
+  "Rajkot", "Amritsar", "Faridabad", "Meerut", "Nashik",
+  "Aurangabad", "Jodhpur", "Coimbatore", "Ranchi", "Guwahati",
+  "Chandigarh", "Mysore", "Tiruchirappalli", "Bareilly", "Gwalior",
+  "Aligarh", "Jalandhar", "Moradabad", "Noida", "Ghaziabad",
 ];
 
 const GOODS_TYPES = [
-  "Heavy goods, long distance",
-  "Household goods, luggage",
-  "Electronics",
-  "Perishables (Food & Agriculture)",
-  "Automobiles & Auto parts",
-  "Textiles & Garments",
-  "Construction Material",
-  "Industrial Equipment",
-  "Chemical & Hazardous",
-  "Medical Supplies",
+  "Aaaj / Anaaj (Grain)",
+  "Kapda / Textile",
+  "Electrical Saman",
+  "Ghar Ka Saman (Furniture)",
+  "Nirman Saman (Construction)",
+  "Medicine / Dawai",
+  "Khaana / Perishables",
+  "Auto Parts",
+  "Chemical / Industrial",
+  "Fish / Seafood",
+  "Cement / Sand",
+  "Koi aur maal (Other)",
 ];
 
 const VEHICLE_TYPES = [
@@ -55,10 +60,10 @@ export default function BookTripScreen() {
   const insets = useSafeAreaInsets();
   const { createTrip } = useApp();
 
-  const [fromCity, setFromCity] = useState("Mumbai");
-  const [toCity, setToCity] = useState("Delhi");
-  const [goodsType, setGoodsType] = useState(GOODS_TYPES[0]);
-  const [vehicleType, setVehicleType] = useState(VEHICLE_TYPES[1]);
+  const [fromCity, setFromCity] = useState("");
+  const [toCity, setToCity] = useState("");
+  const [goodsType, setGoodsType] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [freightAmount, setFreightAmount] = useState("");
   const [consigneeName, setConsigneeName] = useState("");
@@ -66,6 +71,8 @@ export default function BookTripScreen() {
   const [description, setDescription] = useState("");
   const [openDropdown, setOpenDropdown] = useState<DropdownField>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [successBooked, setSuccessBooked] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const commission = freightAmount
     ? Math.round(parseFloat(freightAmount) * 0.05)
@@ -74,32 +81,28 @@ export default function BookTripScreen() {
     ? Math.round(parseFloat(freightAmount) * 0.95)
     : 0;
 
-  const validate = () => {
-    if (!weightKg || parseFloat(weightKg) <= 0) {
-      Alert.alert("Error", "Please enter valid weight in kg");
-      return false;
-    }
-    if (!freightAmount || parseFloat(freightAmount) <= 0) {
-      Alert.alert("Error", "Please enter valid freight amount");
-      return false;
-    }
-    if (!consigneeName.trim()) {
-      Alert.alert("Error", "Please enter consignee name");
-      return false;
-    }
-    if (!consigneePhone.trim() || consigneePhone.length < 10) {
-      Alert.alert("Error", "Please enter valid consignee phone number");
-      return false;
-    }
-    if (fromCity === toCity) {
-      Alert.alert("Error", "From and To city cannot be the same");
-      return false;
-    }
-    return true;
+  const getError = (): string => {
+    if (!fromCity) return "Kahan se bhejna hai — From City chunein";
+    if (!toCity) return "Kahan pahunchana hai — To City chunein";
+    if (fromCity === toCity) return "From aur To sheher alag hone chahiye";
+    if (!goodsType) return "Maal ka prakar chunein";
+    if (!vehicleType) return "Gaadi ka prakar chunein";
+    if (!weightKg || parseFloat(weightKg) <= 0) return "Maal ka vajan (kg) sahi likhen";
+    if (!freightAmount || parseFloat(freightAmount) <= 0)
+      return "Kiraya (₹) zaroori hai — aap jo kiraya dena chahte hain woh likhen";
+    if (!consigneeName.trim()) return "Maal lene wale ka naam likhen";
+    if (!consigneePhone.trim() || consigneePhone.length < 10)
+      return "Maal lene wale ka 10 digit phone number likhein";
+    return "";
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    const err = getError();
+    if (err) {
+      setErrorMsg(err);
+      return;
+    }
+    setErrorMsg("");
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -115,13 +118,12 @@ export default function BookTripScreen() {
         description: description.trim(),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Trip Booked!",
-        "Your trip has been booked successfully. A bilty has been generated.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
+      setSuccessBooked(true);
+      setTimeout(() => {
+        router.back();
+      }, 1800);
     } catch {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      setErrorMsg("Kuch galat hua — dobara koshish karein");
     } finally {
       setSubmitting(false);
     }
@@ -137,7 +139,7 @@ export default function BookTripScreen() {
     return (
       <View style={styles.dropdown}>
         <ScrollView
-          style={{ maxHeight: 200 }}
+          style={{ maxHeight: 220 }}
           nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
@@ -151,6 +153,7 @@ export default function BookTripScreen() {
               onPress={() => {
                 onSelect(opt);
                 setOpenDropdown(null);
+                setErrorMsg("");
                 Haptics.selectionAsync();
               }}
             >
@@ -172,86 +175,115 @@ export default function BookTripScreen() {
     );
   }
 
+  if (successBooked) {
+    return (
+      <View style={styles.successScreen}>
+        <View style={styles.successIcon}>
+          <MaterialCommunityIcons name="truck-check" size={56} color="#fff" />
+        </View>
+        <Text style={styles.successTitle}>Trip Book Ho Gayi! ✅</Text>
+        <Text style={styles.successSub}>
+          Aapki trip book ho gayi aur bilty taiyar ho gayi.{"\n"}
+          Driver jaldi aapki trip accept karega.
+        </Text>
+        <Text style={styles.successBack}>Wapas ja rahe hain...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 32 },
+          { paddingBottom: insets.bottom + 40 },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         bottomOffset={20}
       >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Route Details</Text>
+        {/* STEP 1 — ROUTE */}
+        <View style={styles.stepHeader}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>1</Text>
+          </View>
+          <Text style={styles.stepTitle}>Kahan Se — Kahan Tak</Text>
+        </View>
 
-          <View style={styles.routeCard}>
-            <View style={styles.routeIndicator}>
-              <View style={styles.dotOrigin} />
-              <View style={styles.routeConnector} />
-              <View style={styles.dotDest} />
-            </View>
-            <View style={styles.routeFields}>
-              <Pressable
-                style={styles.citySelector}
-                onPress={() =>
-                  setOpenDropdown(openDropdown === "fromCity" ? null : "fromCity")
-                }
-              >
-                <View>
-                  <Text style={styles.routeFieldLabel}>From</Text>
-                  <Text style={styles.routeFieldValue}>{fromCity}</Text>
-                </View>
-                <Ionicons
-                  name={openDropdown === "fromCity" ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color={Colors.textMuted}
-                />
-              </Pressable>
-              {renderDropdown("fromCity", CITIES, fromCity, setFromCity)}
+        <View style={styles.routeCard}>
+          <View style={styles.routeIndicator}>
+            <View style={styles.dotOrigin} />
+            <View style={styles.routeConnector} />
+            <View style={styles.dotDest} />
+          </View>
+          <View style={styles.routeFields}>
+            <Pressable
+              style={styles.citySelector}
+              onPress={() => {
+                setOpenDropdown(openDropdown === "fromCity" ? null : "fromCity");
+                setErrorMsg("");
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.routeFieldLabel}>📍 Kahan Se (From City)</Text>
+                <Text style={[styles.routeFieldValue, !fromCity && styles.placeholder]}>
+                  {fromCity || "Sheher chunein..."}
+                </Text>
+              </View>
+              <Ionicons
+                name={openDropdown === "fromCity" ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={Colors.primary}
+              />
+            </Pressable>
+            {renderDropdown("fromCity", CITIES, fromCity, setFromCity)}
 
-              <View style={styles.routeDivider} />
+            <View style={styles.routeDivider} />
 
-              <Pressable
-                style={styles.citySelector}
-                onPress={() =>
-                  setOpenDropdown(openDropdown === "toCity" ? null : "toCity")
-                }
-              >
-                <View>
-                  <Text style={styles.routeFieldLabel}>To</Text>
-                  <Text style={styles.routeFieldValue}>{toCity}</Text>
-                </View>
-                <Ionicons
-                  name={openDropdown === "toCity" ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color={Colors.textMuted}
-                />
-              </Pressable>
-              {renderDropdown("toCity", CITIES, toCity, setToCity)}
-            </View>
+            <Pressable
+              style={styles.citySelector}
+              onPress={() => {
+                setOpenDropdown(openDropdown === "toCity" ? null : "toCity");
+                setErrorMsg("");
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.routeFieldLabel}>🏁 Kahan Tak (To City)</Text>
+                <Text style={[styles.routeFieldValue, !toCity && styles.placeholder]}>
+                  {toCity || "Sheher chunein..."}
+                </Text>
+              </View>
+              <Ionicons
+                name={openDropdown === "toCity" ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={Colors.success}
+              />
+            </Pressable>
+            {renderDropdown("toCity", CITIES, toCity, setToCity)}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Goods Details</Text>
+        {/* STEP 2 — GOODS */}
+        <View style={styles.stepHeader}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>2</Text>
+          </View>
+          <Text style={styles.stepTitle}>Maal Ki Jankari</Text>
+        </View>
 
+        <View style={styles.card}>
           <Pressable
-            style={styles.selectField}
-            onPress={() =>
-              setOpenDropdown(openDropdown === "goodsType" ? null : "goodsType")
-            }
+            style={styles.selectRow}
+            onPress={() => {
+              setOpenDropdown(openDropdown === "goodsType" ? null : "goodsType");
+              setErrorMsg("");
+            }}
           >
-            <MaterialCommunityIcons
-              name="package-variant"
-              size={18}
-              color={Colors.textMuted}
-            />
+            <MaterialCommunityIcons name="package-variant" size={20} color={Colors.textMuted} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.selectFieldLabel}>Goods Type</Text>
-              <Text style={styles.selectFieldValue} numberOfLines={1}>
-                {goodsType}
+              <Text style={styles.fieldLabel}>Maal Ka Prakar</Text>
+              <Text style={[styles.fieldValue, !goodsType && styles.placeholder]}>
+                {goodsType || "Maal chunein..."}
               </Text>
             </View>
             <Ionicons
@@ -262,47 +294,21 @@ export default function BookTripScreen() {
           </Pressable>
           {renderDropdown("goodsType", GOODS_TYPES, goodsType, setGoodsType)}
 
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>Weight (kg)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 5000"
-                placeholderTextColor={Colors.textMuted}
-                value={weightKg}
-                onChangeText={(v) => setWeightKg(v.replace(/[^0-9.]/g, ""))}
-                keyboardType="decimal-pad"
-              />
-            </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>Freight Amount (₹)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 45000"
-                placeholderTextColor={Colors.textMuted}
-                value={freightAmount}
-                onChangeText={(v) => setFreightAmount(v.replace(/[^0-9]/g, ""))}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
+          <View style={styles.cardDivider} />
 
           <Pressable
-            style={styles.selectField}
-            onPress={() =>
-              setOpenDropdown(
-                openDropdown === "vehicleType" ? null : "vehicleType"
-              )
-            }
+            style={styles.selectRow}
+            onPress={() => {
+              setOpenDropdown(openDropdown === "vehicleType" ? null : "vehicleType");
+              setErrorMsg("");
+            }}
           >
-            <MaterialCommunityIcons
-              name="truck-outline"
-              size={18}
-              color={Colors.textMuted}
-            />
+            <MaterialCommunityIcons name="truck-outline" size={20} color={Colors.textMuted} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.selectFieldLabel}>Vehicle Type</Text>
-              <Text style={styles.selectFieldValue}>{vehicleType}</Text>
+              <Text style={styles.fieldLabel}>Gaadi Ka Prakar</Text>
+              <Text style={[styles.fieldValue, !vehicleType && styles.placeholder]}>
+                {vehicleType || "Gaadi chunein..."}
+              </Text>
             </View>
             <Ionicons
               name={openDropdown === "vehicleType" ? "chevron-up" : "chevron-down"}
@@ -312,46 +318,121 @@ export default function BookTripScreen() {
           </Pressable>
           {renderDropdown("vehicleType", VEHICLE_TYPES, vehicleType, setVehicleType)}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description (Optional)</Text>
+          <View style={styles.cardDivider} />
+
+          <View style={styles.inputRow}>
+            <Text style={styles.fieldLabel}>⚖️ Vajan (Kg mein)</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Describe the goods..."
+              style={styles.inlineInput}
+              placeholder="Jaise: 5000 kg"
+              placeholderTextColor={Colors.textMuted}
+              value={weightKg}
+              onChangeText={(v) => { setWeightKg(v.replace(/[^0-9.]/g, "")); setErrorMsg(""); }}
+              keyboardType="decimal-pad"
+            />
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.inputRow}>
+            <Text style={styles.fieldLabel}>📝 Maal Ka Vivaran (Optional)</Text>
+            <TextInput
+              style={[styles.inlineInput, { minHeight: 60, textAlignVertical: "top" }]}
+              placeholder="Maal ke baare mein kuch aur..."
               placeholderTextColor={Colors.textMuted}
               value={description}
               onChangeText={setDescription}
               multiline
-              numberOfLines={3}
             />
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Consignee Details</Text>
+        {/* STEP 3 — KIRAYA */}
+        <View style={styles.stepHeader}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>3</Text>
+          </View>
+          <Text style={styles.stepTitle}>Kiraya Tay Karein</Text>
+        </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Consignee Name</Text>
+        <View style={styles.kirayadCard}>
+          <View style={styles.kiraayaHeader}>
+            <MaterialCommunityIcons name="currency-inr" size={22} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kiraayaTitle}>Aapka Kiraya (₹)</Text>
+              <Text style={styles.kiraayaHint}>
+                Jo kiraya aap driver ko dena chahte hain woh yahan likhen — yeh aap tay karenge
+              </Text>
+            </View>
+          </View>
+          <TextInput
+            style={styles.kiraayaInput}
+            placeholder="₹ 0"
+            placeholderTextColor={Colors.textMuted}
+            value={freightAmount}
+            onChangeText={(v) => { setFreightAmount(v.replace(/[^0-9]/g, "")); setErrorMsg(""); }}
+            keyboardType="numeric"
+            accessibilityLabel="Kiraya Amount"
+          />
+          {freightAmount ? (
+            <View style={styles.kiraayaBreakdown}>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Aapka Kiraya</Text>
+                <Text style={styles.breakdownValue}>
+                  ₹{parseFloat(freightAmount).toLocaleString("en-IN")}
+                </Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabelRed}>LFI Commission (5%)</Text>
+                <Text style={styles.breakdownValueRed}>
+                  -₹{commission.toLocaleString("en-IN")}
+                </Text>
+              </View>
+              <View style={[styles.breakdownRow, styles.breakdownTotal]}>
+                <Text style={styles.breakdownLabelGreen}>Driver Ko Milega</Text>
+                <Text style={styles.breakdownValueGreen}>
+                  ₹{driverEarning.toLocaleString("en-IN")}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        {/* STEP 4 — CONSIGNEE */}
+        <View style={styles.stepHeader}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>4</Text>
+          </View>
+          <Text style={styles.stepTitle}>Maal Lene Wale Ki Jankari</Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.inputRow}>
+            <Text style={styles.fieldLabel}>👤 Naam (Consignee)</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Receiver's full name"
+              style={styles.inlineInput}
+              placeholder="Maal lene wale ka poora naam"
               placeholderTextColor={Colors.textMuted}
               value={consigneeName}
-              onChangeText={setConsigneeName}
+              onChangeText={(v) => { setConsigneeName(v); setErrorMsg(""); }}
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Consignee Phone</Text>
+          <View style={styles.cardDivider} />
+
+          <View style={styles.inputRow}>
+            <Text style={styles.fieldLabel}>📞 Phone Number</Text>
             <View style={styles.phoneRow}>
               <Text style={styles.phoneCode}>+91</Text>
               <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="10-digit phone number"
+                style={[styles.inlineInput, { flex: 1, borderWidth: 0, padding: 0 }]}
+                placeholder="10 digit number"
                 placeholderTextColor={Colors.textMuted}
                 value={consigneePhone}
-                onChangeText={(v) =>
-                  setConsigneePhone(v.replace(/[^0-9]/g, "").slice(0, 10))
-                }
+                onChangeText={(v) => {
+                  setConsigneePhone(v.replace(/[^0-9]/g, "").slice(0, 10));
+                  setErrorMsg("");
+                }}
                 keyboardType="numeric"
                 maxLength={10}
               />
@@ -359,30 +440,15 @@ export default function BookTripScreen() {
           </View>
         </View>
 
-        {freightAmount ? (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Billing Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Freight Amount</Text>
-              <Text style={styles.summaryValue}>
-                ₹{parseFloat(freightAmount || "0").toLocaleString("en-IN")}
-              </Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>LFI Commission (5%)</Text>
-              <Text style={[styles.summaryValue, { color: Colors.error }]}>
-                -₹{commission.toLocaleString("en-IN")}
-              </Text>
-            </View>
-            <View style={[styles.summaryRow, styles.summaryTotal]}>
-              <Text style={styles.summaryTotalLabel}>Driver Earning</Text>
-              <Text style={styles.summaryTotalValue}>
-                ₹{driverEarning.toLocaleString("en-IN")}
-              </Text>
-            </View>
+        {/* ERROR MESSAGE */}
+        {errorMsg ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={18} color={Colors.error} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
 
+        {/* SUBMIT */}
         <Pressable
           style={({ pressed }) => [
             styles.submitBtn,
@@ -391,13 +457,17 @@ export default function BookTripScreen() {
           ]}
           onPress={handleSubmit}
           disabled={submitting}
+          accessibilityLabel="Trip Book Karo & Bilty Banao"
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <MaterialCommunityIcons name="truck-plus" size={20} color="#fff" />
-              <Text style={styles.submitBtnText}>Book Trip & Generate Bilty</Text>
+              <MaterialCommunityIcons name="truck-plus" size={22} color="#fff" />
+              <View>
+                <Text style={styles.submitBtnText}>Trip Book Karo & Bilty Banao</Text>
+                <Text style={styles.submitBtnSub}>Driver ko trip ki notification milegi</Text>
+              </View>
             </>
           )}
         </Pressable>
@@ -413,54 +483,102 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 0,
-  },
-  section: {
-    marginBottom: 24,
     gap: 12,
   },
-  sectionTitle: {
+  successScreen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    gap: 20,
+  },
+  successIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.success,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  successTitle: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    textAlign: "center",
+  },
+  successSub: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  successBack: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    marginTop: 8,
+  },
+  stepHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
     marginBottom: 4,
+  },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNum: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  stepTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
   },
   routeCard: {
     flexDirection: "row",
     backgroundColor: Colors.card,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: "hidden",
+    marginBottom: 4,
   },
   routeIndicator: {
-    width: 24,
+    width: 28,
     alignItems: "center",
-    paddingVertical: 24,
-    gap: 0,
+    paddingVertical: 20,
   },
   dotOrigin: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: Colors.primary,
-    marginTop: 18,
+    marginTop: 20,
   },
   routeConnector: {
     flex: 1,
     width: 2,
     backgroundColor: Colors.border,
-    marginVertical: 6,
-    marginLeft: -1,
+    marginVertical: 4,
   },
   dotDest: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: Colors.success,
-    marginBottom: 18,
+    marginBottom: 20,
   },
   routeFields: {
     flex: 1,
@@ -470,30 +588,94 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
+    gap: 8,
   },
   routeFieldLabel: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   routeFieldValue: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
     color: Colors.text,
   },
   routeDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginHorizontal: 16,
+  },
+  placeholder: {
+    color: Colors.textMuted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+  },
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  selectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+  },
+  inputRow: {
+    padding: 14,
+    gap: 8,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textMuted,
+  },
+  fieldValue: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+    color: Colors.text,
+  },
+  inlineInput: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: Colors.text,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  phoneCode: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textSecondary,
   },
   dropdown: {
     backgroundColor: Colors.surface,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginHorizontal: 4,
-    marginBottom: 4,
+    marginHorizontal: 8,
+    marginBottom: 8,
     overflow: "hidden",
   },
   dropdownItem: {
@@ -515,126 +697,121 @@ const styles = StyleSheet.create({
   },
   dropdownItemTextActive: {
     color: Colors.primary,
-    fontFamily: "Inter_500Medium",
-  },
-  selectField: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  selectFieldLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    color: Colors.textMuted,
-    marginBottom: 2,
-  },
-  selectFieldValue: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    color: Colors.text,
-  },
-  row: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: Colors.textMuted,
-    marginLeft: 2,
-  },
-  input: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    color: Colors.text,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
-  phoneRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 8,
-  },
-  phoneCode: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    color: Colors.textSecondary,
-  },
-  summaryCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryTitle: {
-    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    color: Colors.textSecondary,
+  },
+  kirayadCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    padding: 16,
+    gap: 12,
     marginBottom: 4,
   },
-  summaryRow: {
+  kiraayaHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  kiraayaTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.primary,
+  },
+  kiraayaHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  kiraayaInput: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    textAlign: "center",
+  },
+  kiraayaBreakdown: {
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  breakdownRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  summaryLabel: {
+  breakdownTotal: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 8,
+    marginTop: 2,
+  },
+  breakdownLabel: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: Colors.textSecondary,
   },
-  summaryValue: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    color: Colors.text,
-  },
-  summaryTotal: {
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  summaryTotalLabel: {
+  breakdownValue: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     color: Colors.text,
   },
-  summaryTotalValue: {
+  breakdownLabelRed: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.error,
+  },
+  breakdownValueRed: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.error,
+  },
+  breakdownLabelGreen: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
+  },
+  breakdownValueGreen: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
     color: Colors.success,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#2A0000",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    padding: 12,
+    marginTop: 4,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.error,
+    lineHeight: 18,
   },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 12,
     backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginTop: 8,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -643,7 +820,13 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_700Bold",
     color: "#fff",
+  },
+  submitBtnSub: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
   },
 });
