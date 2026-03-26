@@ -39,14 +39,14 @@ const GOODS_TYPES = [
 ];
 
 const VEHICLE_TYPES = [
-  "Mini Truck (1-3 ton)",
-  "Tempo (3-5 ton)",
-  "Single Axle (5-8 ton)",
-  "Multi Axle (8-15 ton)",
-  "22-Wheeler (15-25 ton)",
-  "Flatbed Trailer",
-  "Refrigerated Truck",
-  "Container Truck",
+  "Bolero Pickup (0.75 Ton)",
+  "Tata Ace / Mini Truck (1.5 Ton)",
+  "Luggage Carrier (2 Ton)",
+  "Canter (3 Ton)",
+  "Fish Insulator / Reefer (5 Ton)",
+  "6 Wheeler Truck (10 Ton)",
+  "10 Wheeler Truck (20 Ton)",
+  "Trailer / Container (40 Ton)",
 ];
 
 type DropdownField = "fromCity" | "toCity" | "goodsType" | "vehicleType" | null;
@@ -58,7 +58,7 @@ export default function BookTripScreen() {
   const [fromCity, setFromCity] = useState("Mumbai");
   const [toCity, setToCity] = useState("Delhi");
   const [goodsType, setGoodsType] = useState(GOODS_TYPES[0]);
-  const [vehicleType, setVehicleType] = useState(VEHICLE_TYPES[0]);
+  const [vehicleType, setVehicleType] = useState(VEHICLE_TYPES[1]);
   const [weightKg, setWeightKg] = useState("");
   const [freightAmount, setFreightAmount] = useState("");
   const [consigneeName, setConsigneeName] = useState("");
