@@ -420,6 +420,11 @@ export default function ProfileScreen() {
               }
             />
             <MenuItem
+              icon="qrcode"
+              label="App Share karein (QR Code)"
+              onPress={() => router.push("/qr-share")}
+            />
+            <MenuItem
               icon="shield-lock-outline"
               label="Privacy Policy"
               onPress={() => router.push("/privacy-policy")}

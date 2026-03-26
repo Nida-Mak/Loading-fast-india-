@@ -84,6 +84,13 @@ function RootLayoutNav() {
           },
         }}
       />
+      <Stack.Screen
+        name="qr-share"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
     </Stack>
   );
 }
