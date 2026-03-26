@@ -416,7 +416,23 @@ export default function ProfileScreen() {
               icon="help-circle-outline"
               label="Help & Support"
               onPress={() =>
-                Alert.alert("Support", "Contact us at support@loadingfastindia.com")
+                Alert.alert("Support", "Contact us at support@loadingfastindia.in")
+              }
+            />
+            <MenuItem
+              icon="shield-lock-outline"
+              label="Privacy Policy"
+              onPress={() => router.push("/privacy-policy")}
+            />
+            <MenuItem
+              icon="alert-octagon-outline"
+              label="Report Fraud"
+              onPress={() =>
+                Alert.alert(
+                  "Report Fraud",
+                  "To report fraud or illegal activity, please email: legal@loadingfastindia.in\n\nYou may also file an FIR at your local police station under IPC Section 420.",
+                  [{ text: "OK" }]
+                )
               }
             />
             <MenuItem
@@ -425,7 +441,7 @@ export default function ProfileScreen() {
               onPress={() =>
                 Alert.alert(
                   "Loading Fast India",
-                  "India's fastest logistics platform. Version 1.0.0"
+                  "India's fastest logistics platform. Version 1.0.0\n\nCommission-based platform connecting Merchants & Drivers."
                 )
               }
             />

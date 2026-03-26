@@ -71,6 +71,19 @@ function RootLayoutNav() {
           },
         }}
       />
+      <Stack.Screen
+        name="privacy-policy"
+        options={{
+          headerShown: true,
+          title: "Privacy Policy",
+          headerStyle: { backgroundColor: Colors.surface },
+          headerTintColor: Colors.text,
+          headerTitleStyle: {
+            fontFamily: "Inter_600SemiBold",
+            color: Colors.text,
+          },
+        }}
+      />
     </Stack>
   );
 }

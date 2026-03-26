@@ -488,7 +488,13 @@ export default function LoginScreen() {
                 color={Colors.textMuted}
               />
               <Text style={styles.termsText}>
-                Aadhaar verified platform. Secured by LFI.
+                Aadhaar verified platform. Secured by LFI.{" "}
+                <Text
+                  style={styles.privacyLink}
+                  onPress={() => router.push("/privacy-policy")}
+                >
+                  Privacy Policy
+                </Text>
               </Text>
             </View>
           </View>
@@ -720,5 +726,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     textTransform: "none",
+  },
+  privacyLink: {
+    color: Colors.primary,
+    fontFamily: "Inter_500Medium",
+    textDecorationLine: "underline",
   },
 });
