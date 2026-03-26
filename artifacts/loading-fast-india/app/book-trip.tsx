@@ -29,18 +29,89 @@ const CITIES = [
 ];
 
 const GOODS_TYPES = [
-  "Aaaj / Anaaj (Grain)",
-  "Kapda / Textile",
-  "Electrical Saman",
-  "Ghar Ka Saman (Furniture)",
-  "Nirman Saman (Construction)",
-  "Medicine / Dawai",
-  "Khaana / Perishables",
-  "Auto Parts",
-  "Chemical / Industrial",
-  "Fish / Seafood",
-  "Cement / Sand",
-  "Koi aur maal (Other)",
+  // Anaaj & Fasal — Grain & Crops
+  "Gehun / Wheat (गेहूं)",
+  "Chawal / Rice (चावल)",
+  "Makka / Maize (मक्का)",
+  "Jowar / Sorghum (ज्वार)",
+  "Bajra / Pearl Millet (बाजरा)",
+  "Dal / Pulses (दाल)",
+  "Soyabean / Soya (सोयाबीन)",
+  "Sarson / Mustard (सरसों)",
+  "Kapas / Cotton (कपास)",
+  "Ganna / Sugarcane (गन्ना)",
+
+  // Phal & Sabzi — Fruits & Vegetables
+  "Nariyal / Coconut (नारियल)",
+  "Kela / Banana (केला)",
+  "Aalu / Potato (आलू)",
+  "Pyaaz / Onion (प्याज)",
+  "Tamatar / Tomato (टमाटर)",
+  "Lahsun / Garlic (लहसुन)",
+  "Adrak / Ginger (अदरक)",
+  "Aam / Mango (आम)",
+  "Santra / Orange (संतरा)",
+  "Angoor / Grapes (अंगूर)",
+  "Seb / Apple (सेब)",
+  "Tarbooz / Watermelon (तरबूज)",
+  "Mirchi / Chilli (मिर्च)",
+  "Hari Sabzi / Green Vegetables (हरी सब्जी)",
+
+  // Masale & Tel — Spices & Oil
+  "Mirch Masala / Spices (मसाला)",
+  "Tel / Edible Oil (खाद्य तेल)",
+  "Haldi / Turmeric (हल्दी)",
+  "Zeera / Cumin (जीरा)",
+
+  // Machli & Maans — Fish & Meat
+  "Taza Machli / Fresh Fish (ताजी मछली)",
+  "Sookhi Machli / Dry Fish (सूखी मछली)",
+  "Jhinga / Prawn (झींगा)",
+  "Murgi / Poultry (मुर्गी)",
+
+  // Doodh & Dairy
+  "Doodh / Milk (दूध)",
+  "Paneer / Cheese (पनीर)",
+  "Ghee / Clarified Butter (घी)",
+  "Makhan / Butter (मक्खन)",
+
+  // Kapda & Textile
+  "Kapda / Fabric & Textile (कपड़ा)",
+  "Taiyar Kapde / Garments (तैयार कपड़े)",
+
+  // Nirman Saman — Construction
+  "Cement (सीमेंट)",
+  "Ret / Sand (रेत)",
+  "Bajri / Gravel (बजरी)",
+  "Bricks / Eent (ईंट)",
+  "Sariya / TMT Bar (सरिया)",
+  "Lakkad / Timber (लकड़ी)",
+  "Patthar / Stone (पत्थर)",
+  "Tiles / Ceramic (टाइल्स)",
+
+  // Electrical & Electronics
+  "Electrical Saman / Electricals (इलेक्ट्रिकल)",
+  "Mobile / Electronics (इलेक्ट्रॉनिक्स)",
+  "Fridge / AC / Home Appliance (होम अप्लायंस)",
+
+  // Ghar Ka Saman — Household
+  "Furniture / Ghar Ka Saman (फर्नीचर)",
+  "Bartan / Utensils (बर्तन)",
+
+  // Pharmaceutical & Medical
+  "Dawai / Medicine (दवाई)",
+  "Medical Equipment (मेडिकल उपकरण)",
+
+  // Auto & Industrial
+  "Auto Parts / Spare Parts (ऑटो पार्ट्स)",
+  "Machinery / Machine (मशीनरी)",
+  "Chemical / Industrial (केमिकल)",
+  "Plastic / Rubber (प्लास्टिक / रबर)",
+
+  // Miscellaneous
+  "Paper / Stationary (कागज)",
+  "Glass / Sheeshe Ka Saman (शीशा)",
+  "Koi Aur Maal / Other Goods (अन्य)",
 ];
 
 const VEHICLE_TYPES = [
