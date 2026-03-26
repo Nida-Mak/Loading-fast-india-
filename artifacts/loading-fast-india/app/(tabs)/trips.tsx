@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -34,7 +35,7 @@ const STATUS_CONFIG: Record<
   { color: string; bg: string; label: string; icon: string }
 > = {
   pending: { color: Colors.warning, bg: "#2A1F00", label: "Pending", icon: "clock-outline" },
-  accepted: { color: Colors.info, bg: "#001F40", label: "Accepted", icon: "check-circle-outline" },
+  accepted: { color: Colors.info, bg: "#001F40", label: "Confirmed", icon: "check-circle-outline" },
   in_transit: { color: Colors.primary, bg: "#1A0A00", label: "In Transit", icon: "truck-delivery" },
   delivered: { color: Colors.success, bg: "#002A1A", label: "Delivered", icon: "package-variant-closed-check" },
   cancelled: { color: Colors.error, bg: "#2A0000", label: "Cancelled", icon: "close-circle-outline" },
@@ -42,18 +43,110 @@ const STATUS_CONFIG: Record<
 
 const FILTERS = ["All", "Pending", "In Transit", "Delivered"];
 
+function CommissionModal({
+  visible,
+  trip,
+  onConfirm,
+  onClose,
+}: {
+  visible: boolean;
+  trip: Trip | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  if (!trip) return null;
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.sheet}>
+          <View style={modalStyles.handle} />
+
+          <View style={modalStyles.iconRow}>
+            <View style={modalStyles.iconCircle}>
+              <MaterialCommunityIcons name="shield-check" size={32} color={Colors.primary} />
+            </View>
+          </View>
+
+          <Text style={modalStyles.title}>Commission Pay Karo</Text>
+          <Text style={modalStyles.subtitle}>
+            Trip confirm karne ke liye LFI commission pay karein
+          </Text>
+
+          <View style={modalStyles.tripSummary}>
+            <View style={modalStyles.summaryRow}>
+              <MaterialCommunityIcons name="map-marker" size={16} color={Colors.primary} />
+              <Text style={modalStyles.summaryText}>
+                {trip.fromCity} → {trip.toCity}
+              </Text>
+            </View>
+            <View style={modalStyles.summaryRow}>
+              <MaterialCommunityIcons name="package-variant" size={16} color={Colors.textMuted} />
+              <Text style={modalStyles.summaryMuted}>{trip.goodsType}</Text>
+            </View>
+            <View style={modalStyles.summaryRow}>
+              <MaterialCommunityIcons name="truck" size={16} color={Colors.textMuted} />
+              <Text style={modalStyles.summaryMuted}>{trip.vehicleType} • {trip.weightKg} kg</Text>
+            </View>
+          </View>
+
+          <View style={modalStyles.amountBox}>
+            <View style={modalStyles.amountRow}>
+              <Text style={modalStyles.amountLabel}>Freight Amount (Rent)</Text>
+              <Text style={modalStyles.amountValue}>{formatCurrency(trip.freightAmount)}</Text>
+            </View>
+            <View style={modalStyles.amountDivider} />
+            <View style={modalStyles.amountRow}>
+              <Text style={modalStyles.commissionLabel}>LFI Commission (5%)</Text>
+              <Text style={modalStyles.commissionValue}>{formatCurrency(trip.lfiCommission)}</Text>
+            </View>
+            <View style={modalStyles.amountDivider} />
+            <View style={modalStyles.amountRow}>
+              <Text style={modalStyles.earningLabel}>Aapki Kamaai</Text>
+              <Text style={modalStyles.earningValue}>{formatCurrency(trip.driverEarning)}</Text>
+            </View>
+          </View>
+
+          <View style={modalStyles.lockNote}>
+            <MaterialCommunityIcons name="lock" size={14} color={Colors.warning} />
+            <Text style={modalStyles.lockNoteText}>
+              Commission pay karne ke baad merchant ka phone number aur location milega
+            </Text>
+          </View>
+
+          <Pressable style={modalStyles.payBtn} onPress={onConfirm}>
+            <MaterialCommunityIcons name="cash-check" size={20} color="#fff" />
+            <Text style={modalStyles.payBtnText}>
+              Commission Pay Karo — {formatCurrency(trip.lfiCommission)}
+            </Text>
+          </Pressable>
+
+          <Pressable style={modalStyles.cancelBtn} onPress={onClose}>
+            <Text style={modalStyles.cancelBtnText}>Baad Mein</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function TripItem({
   trip,
   role,
-  onAccept,
+  onPayCommission,
   onPress,
 }: {
   trip: Trip;
   role: string;
-  onAccept?: () => void;
+  onPayCommission?: () => void;
   onPress: () => void;
 }) {
   const status = STATUS_CONFIG[trip.status];
+  const isPendingForDriver = role === "driver" && trip.status === "pending";
 
   return (
     <Pressable
@@ -95,26 +188,35 @@ function TripItem({
       <View style={styles.tripBody}>
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Goods</Text>
+            <Text style={styles.infoLabel}>Maal</Text>
             <Text style={styles.infoValue} numberOfLines={1}>
               {trip.goodsType}
             </Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Weight</Text>
+            <Text style={styles.infoLabel}>Vajan</Text>
             <Text style={styles.infoValue}>{trip.weightKg} kg</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Vehicle</Text>
+            <Text style={styles.infoLabel}>Gaadi</Text>
             <Text style={styles.infoValue}>{trip.vehicleType}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Freight</Text>
+            <Text style={styles.infoLabel}>Rent</Text>
             <Text style={[styles.infoValue, { color: Colors.primary }]}>
               {formatCurrency(trip.freightAmount)}
             </Text>
           </View>
         </View>
+
+        {isPendingForDriver && (
+          <View style={styles.commissionInfoBar}>
+            <MaterialCommunityIcons name="shield-alert" size={14} color={Colors.warning} />
+            <Text style={styles.commissionInfoText}>
+              Commission: {formatCurrency(trip.lfiCommission)} • Aapki Kamaai: {formatCurrency(trip.driverEarning)}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.tripFooter}>
           <View>
@@ -122,16 +224,16 @@ function TripItem({
             <Text style={styles.timeText}>{timeAgo(trip.createdAt)}</Text>
           </View>
           <View style={styles.tripActions}>
-            {role === "driver" && trip.status === "pending" && (
+            {isPendingForDriver && (
               <Pressable
-                style={styles.acceptBtn}
+                style={styles.commissionBtn}
                 onPress={(e) => {
                   e.stopPropagation?.();
-                  onAccept?.();
+                  onPayCommission?.();
                 }}
               >
-                <Text style={styles.acceptBtnText}>Accept</Text>
-                <Ionicons name="checkmark" size={14} color="#fff" />
+                <MaterialCommunityIcons name="cash" size={14} color="#fff" />
+                <Text style={styles.commissionBtnText}>Commission Pay</Text>
               </Pressable>
             )}
             <Pressable style={styles.detailBtn} onPress={onPress}>
@@ -146,8 +248,10 @@ function TripItem({
 
 export default function TripsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, trips, acceptTrip } = useApp();
+  const { user, trips, payCommissionAndAccept } = useApp();
   const [activeFilter, setActiveFilter] = useState("All");
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const topBarHeight = Platform.OS === "web" ? insets.top + 67 : insets.top;
 
@@ -182,24 +286,29 @@ export default function TripsScreen() {
     );
   }, [user, trips, activeFilter]);
 
-  const handleAccept = (tripId: string) => {
-    Alert.alert("Accept Trip", "Do you want to accept this trip?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Accept",
-        onPress: async () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          await acceptTrip(tripId);
-        },
-      },
-    ]);
+  const openCommissionModal = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const handlePayCommission = async () => {
+    if (!selectedTrip) return;
+    setModalVisible(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await payCommissionAndAccept(selectedTrip.id);
+    Alert.alert(
+      "Trip Confirm Ho Gayi! ✅",
+      "Commission pay ho gayi. Ab trip mein jaayein — merchant ka phone number aur location dikhega.",
+      [{ text: "Theek Hai" }]
+    );
   };
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topBarHeight + 16 }]}>
         <Text style={styles.headerTitle}>
-          {user?.role === "driver" ? "Available & My Trips" : "My Trips"}
+          {user?.role === "driver" ? "Trips" : "Meri Trips"}
         </Text>
         {user?.role === "merchant" && (
           <Pressable
@@ -213,6 +322,15 @@ export default function TripsScreen() {
           </Pressable>
         )}
       </View>
+
+      {user?.role === "driver" && (
+        <View style={styles.driverNotice}>
+          <MaterialCommunityIcons name="information" size={14} color={Colors.info} />
+          <Text style={styles.driverNoticeText}>
+            Commission pay karne ke baad merchant ka contact milega
+          </Text>
+        </View>
+      )}
 
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (
@@ -246,7 +364,7 @@ export default function TripsScreen() {
           <TripItem
             trip={item}
             role={user?.role || "merchant"}
-            onAccept={() => handleAccept(item.id)}
+            onPayCommission={() => openCommissionModal(item)}
             onPress={() => {
               Haptics.selectionAsync();
               router.push(`/trip/${item.id}`);
@@ -265,17 +383,24 @@ export default function TripsScreen() {
               size={64}
               color={Colors.textMuted}
             />
-            <Text style={styles.emptyTitle}>No trips found</Text>
+            <Text style={styles.emptyTitle}>Koi trip nahi mili</Text>
             <Text style={styles.emptyText}>
               {activeFilter !== "All"
-                ? `No ${activeFilter.toLowerCase()} trips`
+                ? `Koi ${activeFilter.toLowerCase()} trip nahi hai`
                 : user?.role === "merchant"
-                ? "Book your first trip"
-                : "No trips available right now"}
+                ? "Pehli trip book karein"
+                : "Abhi koi trip available nahi hai"}
             </Text>
           </View>
         }
         scrollEnabled={!!filteredTrips.length}
+      />
+
+      <CommissionModal
+        visible={modalVisible}
+        trip={selectedTrip}
+        onConfirm={handlePayCommission}
+        onClose={() => setModalVisible(false)}
       />
     </View>
   );
@@ -307,6 +432,25 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  driverNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: "#001F40",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#003366",
+  },
+  driverNoticeText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.info,
+    flex: 1,
   },
   filterRow: {
     flexDirection: "row",
@@ -428,6 +572,23 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: Colors.text,
   },
+  commissionInfoBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#2A1F00",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#4A3500",
+  },
+  commissionInfoText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.warning,
+    flex: 1,
+  },
   tripFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -449,17 +610,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  acceptBtn: {
+  commissionBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
   },
-  acceptBtnText: {
-    fontSize: 13,
+  commissionBtnText: {
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
   },
@@ -490,5 +651,168 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     textAlign: "center",
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 16,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  iconRow: {
+    alignItems: "center",
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#1A0A00",
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginTop: -8,
+  },
+  tripSummary: {
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+  },
+  summaryMuted: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+  },
+  amountBox: {
+    backgroundColor: "#0D0D1A",
+    borderRadius: 12,
+    padding: 16,
+    gap: 0,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  amountDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 10,
+  },
+  amountRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  amountLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  amountValue: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+  },
+  commissionLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.error,
+  },
+  commissionValue: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  earningLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
+  },
+  earningValue: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.success,
+  },
+  lockNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#2A1F00",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#4A3500",
+  },
+  lockNoteText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.warning,
+    flex: 1,
+    lineHeight: 18,
+  },
+  payBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+  payBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  cancelBtn: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textMuted,
   },
 });

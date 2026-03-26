@@ -42,6 +42,8 @@ export interface Trip {
   status: TripStatus;
   merchantId: string;
   merchantName: string;
+  merchantPhone: string;
+  merchantCity: string;
   driverId?: string;
   driverName?: string;
   consigneeName: string;
@@ -53,6 +55,7 @@ export interface Trip {
   driverEarning: number;
   vehicleType: string;
   description?: string;
+  commissionPaid?: boolean;
 }
 
 interface AppContextValue {
@@ -62,8 +65,8 @@ interface AppContextValue {
   isLoading: boolean;
   login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
-  createTrip: (trip: Omit<Trip, "id" | "biltyNumber" | "status" | "merchantId" | "merchantName" | "lfiCommission" | "driverEarning" | "createdAt">) => Promise<void>;
-  acceptTrip: (tripId: string) => Promise<void>;
+  createTrip: (trip: Omit<Trip, "id" | "biltyNumber" | "status" | "merchantId" | "merchantName" | "merchantPhone" | "merchantCity" | "lfiCommission" | "driverEarning" | "createdAt" | "commissionPaid">) => Promise<void>;
+  payCommissionAndAccept: (tripId: string) => Promise<void>;
   startTrip: (tripId: string) => Promise<void>;
   deliverTrip: (tripId: string) => Promise<void>;
   cancelTrip: (tripId: string) => Promise<void>;
@@ -90,6 +93,8 @@ const SAMPLE_TRIPS: Trip[] = [
     status: "pending",
     merchantId: "merchant_sample",
     merchantName: "Sharma Traders",
+    merchantPhone: "9876543210",
+    merchantCity: "Mumbai",
     consigneeName: "Ramesh Kumar",
     consigneePhone: "9876543210",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -97,6 +102,7 @@ const SAMPLE_TRIPS: Trip[] = [
     driverEarning: 42750,
     vehicleType: "22-Wheeler",
     description: "Steel rods and construction material",
+    commissionPaid: false,
   },
   {
     id: "trip_002",
@@ -109,6 +115,8 @@ const SAMPLE_TRIPS: Trip[] = [
     status: "pending",
     merchantId: "merchant_sample",
     merchantName: "Tech Exports Pvt Ltd",
+    merchantPhone: "9123456789",
+    merchantCity: "Bangalore",
     consigneeName: "Priya Nair",
     consigneePhone: "9123456789",
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
@@ -116,6 +124,7 @@ const SAMPLE_TRIPS: Trip[] = [
     driverEarning: 11400,
     vehicleType: "Mini Truck",
     description: "Mobile phones and laptops",
+    commissionPaid: false,
   },
   {
     id: "trip_003",
@@ -128,6 +137,8 @@ const SAMPLE_TRIPS: Trip[] = [
     status: "pending",
     merchantId: "merchant_sample",
     merchantName: "Relocation Services",
+    merchantPhone: "9001234567",
+    merchantCity: "Pune",
     consigneeName: "Suresh Reddy",
     consigneePhone: "9001234567",
     createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
@@ -135,6 +146,7 @@ const SAMPLE_TRIPS: Trip[] = [
     driverEarning: 17100,
     vehicleType: "Tempo",
     description: "Furniture and household items",
+    commissionPaid: false,
   },
 ];
 
@@ -243,9 +255,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         | "status"
         | "merchantId"
         | "merchantName"
+        | "merchantPhone"
+        | "merchantCity"
         | "lfiCommission"
         | "driverEarning"
         | "createdAt"
+        | "commissionPaid"
       >
     ) => {
       if (!user) return;
@@ -257,9 +272,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         status: "pending",
         merchantId: user.id,
         merchantName: user.name,
+        merchantPhone: user.phone,
+        merchantCity: user.city,
         lfiCommission: commission,
         driverEarning: tripData.freightAmount - commission,
         createdAt: new Date().toISOString(),
+        commissionPaid: false,
       };
       const updated = [newTrip, ...trips];
       await saveTrips(updated);
@@ -267,7 +285,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [user, trips]
   );
 
-  const acceptTrip = useCallback(
+  const payCommissionAndAccept = useCallback(
     async (tripId: string) => {
       if (!user) return;
       const updated = trips.map((t) =>
@@ -278,6 +296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               driverId: user.id,
               driverName: user.name,
               acceptedAt: new Date().toISOString(),
+              commissionPaid: true,
             }
           : t
       );
@@ -394,7 +413,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       createTrip,
-      acceptTrip,
+      payCommissionAndAccept,
       startTrip,
       deliverTrip,
       cancelTrip,
@@ -411,7 +430,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       createTrip,
-      acceptTrip,
+      payCommissionAndAccept,
       startTrip,
       deliverTrip,
       cancelTrip,

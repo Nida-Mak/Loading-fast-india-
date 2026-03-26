@@ -45,7 +45,7 @@ const STATUS_CONFIG: Record<
   accepted: {
     color: Colors.info,
     bg: "#001F40",
-    label: "Accepted",
+    label: "Confirmed",
     icon: "check-circle-outline",
   },
   in_transit: {
@@ -70,7 +70,7 @@ const STATUS_CONFIG: Record<
 
 const STEPS: { key: TripStatus; label: string }[] = [
   { key: "pending", label: "Booked" },
-  { key: "accepted", label: "Driver Assigned" },
+  { key: "accepted", label: "Confirmed" },
   { key: "in_transit", label: "In Transit" },
   { key: "delivered", label: "Delivered" },
 ];
@@ -84,7 +84,7 @@ function StepProgress({ status }: { status: TripStatus }) {
           size={16}
           color={Colors.error}
         />
-        <Text style={styles.cancelledText}>This trip has been cancelled</Text>
+        <Text style={styles.cancelledText}>Yeh trip cancel ho gayi hai</Text>
       </View>
     );
   }
@@ -140,11 +140,13 @@ function InfoRow({
   label,
   value,
   highlight,
+  valueColor,
 }: {
   icon: string;
   label: string;
   value: string;
   highlight?: boolean;
+  valueColor?: string;
 }) {
   return (
     <View style={styles.infoRow}>
@@ -155,7 +157,11 @@ function InfoRow({
       />
       <Text style={styles.infoLabel}>{label}</Text>
       <Text
-        style={[styles.infoValue, highlight && { color: Colors.primary }]}
+        style={[
+          styles.infoValue,
+          highlight && { color: Colors.primary },
+          valueColor ? { color: valueColor } : null,
+        ]}
         numberOfLines={2}
       >
         {value}
@@ -166,7 +172,7 @@ function InfoRow({
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, user, acceptTrip, startTrip, deliverTrip, cancelTrip } =
+  const { trips, user, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip } =
     useApp();
   const insets = useSafeAreaInsets();
 
@@ -181,9 +187,9 @@ export default function TripDetailScreen() {
           size={64}
           color={Colors.textMuted}
         />
-        <Text style={styles.notFoundText}>Trip not found</Text>
+        <Text style={styles.notFoundText}>Trip nahi mili</Text>
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.backLink}>Go back</Text>
+          <Text style={styles.backLink}>Wapas jaao</Text>
         </Pressable>
       </View>
     );
@@ -191,14 +197,15 @@ export default function TripDetailScreen() {
 
   const status = STATUS_CONFIG[trip.status];
 
-  const canAccept =
-    user?.role === "driver" && trip.status === "pending" && !trip.driverId;
+  const isDriverView = user?.role === "driver";
+  const canPayCommission =
+    isDriverView && trip.status === "pending" && !trip.driverId;
   const canStart =
-    user?.role === "driver" &&
+    isDriverView &&
     trip.driverId === user.id &&
     trip.status === "accepted";
   const canDeliver =
-    user?.role === "driver" &&
+    isDriverView &&
     trip.driverId === user.id &&
     trip.status === "in_transit";
   const canCancel =
@@ -207,23 +214,42 @@ export default function TripDetailScreen() {
   const isActive =
     trip.status !== "delivered" && trip.status !== "cancelled";
 
+  const merchantContactUnlocked =
+    trip.commissionPaid && trip.driverId === user?.id;
+
+  const handlePayCommission = async () => {
+    setLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await payCommissionAndAccept(trip.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Trip Confirm Ho Gayi! ✅",
+        "Commission pay ho gayi. Ab merchant ka phone number aur location yahan dikh raha hai.",
+        [{ text: "Theek Hai" }]
+      );
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAction = async (
-    action: "accept" | "start" | "deliver" | "cancel",
+    action: "start" | "deliver" | "cancel",
     confirmMsg: string
   ) => {
     Alert.alert(
       "Confirm",
       confirmMsg,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Nahi", style: "cancel" },
         {
-          text: "Confirm",
+          text: "Haan",
           onPress: async () => {
             setLoading(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             try {
-              if (action === "accept") await acceptTrip(trip.id);
-              else if (action === "start") await startTrip(trip.id);
+              if (action === "start") await startTrip(trip.id);
               else if (action === "deliver") await deliverTrip(trip.id);
               else if (action === "cancel") await cancelTrip(trip.id);
               Haptics.notificationAsync(
@@ -268,7 +294,7 @@ export default function TripDetailScreen() {
 
           <View style={styles.routeSection}>
             <View style={styles.routeCity}>
-              <Text style={styles.routeCityLabel}>From</Text>
+              <Text style={styles.routeCityLabel}>Kahan Se</Text>
               <Text style={styles.routeCityName}>{trip.fromCity}</Text>
             </View>
             <View style={styles.routeMiddle}>
@@ -280,7 +306,7 @@ export default function TripDetailScreen() {
               <View style={styles.routeArrow} />
             </View>
             <View style={[styles.routeCity, { alignItems: "flex-end" }]}>
-              <Text style={styles.routeCityLabel}>To</Text>
+              <Text style={styles.routeCityLabel}>Kahan Tak</Text>
               <Text style={styles.routeCityName}>{trip.toCity}</Text>
             </View>
           </View>
@@ -292,32 +318,32 @@ export default function TripDetailScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Goods Details</Text>
+          <Text style={styles.cardTitle}>Maal Ki Jankari</Text>
           <InfoRow
             icon="package-variant"
-            label="Goods Type"
+            label="Maal"
             value={trip.goodsType}
           />
           <InfoRow
             icon="weight"
-            label="Weight"
+            label="Vajan"
             value={`${trip.weightKg} kg`}
           />
-          <InfoRow icon="truck" label="Vehicle Type" value={trip.vehicleType} />
+          <InfoRow icon="truck" label="Gaadi" value={trip.vehicleType} />
           {trip.description ? (
             <InfoRow
               icon="text-box-outline"
-              label="Description"
+              label="Vivaran"
               value={trip.description}
             />
           ) : null}
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Financial Details</Text>
+          <Text style={styles.cardTitle}>Paisa</Text>
           <InfoRow
             icon="currency-inr"
-            label="Freight Amount"
+            label="Freight (Rent)"
             value={formatCurrency(trip.freightAmount)}
             highlight
           />
@@ -325,56 +351,127 @@ export default function TripDetailScreen() {
             icon="percent"
             label="LFI Commission (5%)"
             value={formatCurrency(trip.lfiCommission)}
+            valueColor={Colors.error}
           />
           <InfoRow
             icon="cash"
-            label="Driver Earning"
+            label="Driver Ki Kamaai"
             value={formatCurrency(trip.driverEarning)}
+            valueColor={Colors.success}
           />
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Parties</Text>
-          <InfoRow
-            icon="storefront"
-            label="Merchant"
-            value={trip.merchantName}
-          />
-          <InfoRow
-            icon="account"
-            label="Consignee"
-            value={trip.consigneeName}
-          />
-          <InfoRow
-            icon="phone"
-            label="Consignee Phone"
-            value={"+91 " + trip.consigneePhone}
-          />
-          <InfoRow
-            icon="truck-account"
-            label="Driver"
-            value={trip.driverName || "Not assigned yet"}
-          />
-        </View>
+        {isDriverView ? (
+          merchantContactUnlocked ? (
+            <View style={[styles.infoCard, styles.unlockedCard]}>
+              <View style={styles.unlockedHeader}>
+                <MaterialCommunityIcons name="lock-open-check" size={18} color={Colors.success} />
+                <Text style={[styles.cardTitle, { color: Colors.success, marginBottom: 0 }]}>
+                  Merchant Ki Jankari
+                </Text>
+              </View>
+              <InfoRow
+                icon="storefront"
+                label="Merchant"
+                value={trip.merchantName}
+              />
+              <InfoRow
+                icon="map-marker"
+                label="Pickup Sheher"
+                value={trip.merchantCity}
+              />
+              <InfoRow
+                icon="phone"
+                label="Phone Number"
+                value={"+91 " + trip.merchantPhone}
+                valueColor={Colors.info}
+              />
+              <InfoRow
+                icon="account"
+                label="Consignee"
+                value={trip.consigneeName}
+              />
+              <InfoRow
+                icon="phone-outline"
+                label="Consignee Phone"
+                value={"+91 " + trip.consigneePhone}
+                valueColor={Colors.info}
+              />
+            </View>
+          ) : (
+            <View style={styles.lockedCard}>
+              <View style={styles.lockedIconRow}>
+                <View style={styles.lockedIconCircle}>
+                  <MaterialCommunityIcons name="lock" size={28} color={Colors.warning} />
+                </View>
+              </View>
+              <Text style={styles.lockedTitle}>Merchant Ki Jankari</Text>
+              <Text style={styles.lockedSubtitle}>
+                Commission pay karne ke baad merchant ka naam, phone number aur pickup location milega
+              </Text>
+              <View style={styles.lockedItems}>
+                <View style={styles.lockedItem}>
+                  <MaterialCommunityIcons name="storefront" size={14} color={Colors.textMuted} />
+                  <Text style={styles.lockedItemText}>Merchant Ka Naam</Text>
+                  <View style={styles.lockedBlur} />
+                </View>
+                <View style={styles.lockedItem}>
+                  <MaterialCommunityIcons name="phone" size={14} color={Colors.textMuted} />
+                  <Text style={styles.lockedItemText}>Phone Number</Text>
+                  <View style={styles.lockedBlur} />
+                </View>
+                <View style={styles.lockedItem}>
+                  <MaterialCommunityIcons name="map-marker" size={14} color={Colors.textMuted} />
+                  <Text style={styles.lockedItemText}>Pickup Location</Text>
+                  <View style={styles.lockedBlur} />
+                </View>
+              </View>
+            </View>
+          )
+        ) : (
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>Parties</Text>
+            <InfoRow
+              icon="storefront"
+              label="Merchant"
+              value={trip.merchantName}
+            />
+            <InfoRow
+              icon="account"
+              label="Consignee"
+              value={trip.consigneeName}
+            />
+            <InfoRow
+              icon="phone"
+              label="Consignee Phone"
+              value={"+91 " + trip.consigneePhone}
+            />
+            <InfoRow
+              icon="truck-account"
+              label="Driver"
+              value={trip.driverName || "Assign nahi hua"}
+            />
+          </View>
+        )}
 
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Timeline</Text>
           <InfoRow
             icon="clock-plus-outline"
-            label="Booked"
+            label="Book Kiya"
             value={formatDateTime(trip.createdAt)}
           />
           {trip.acceptedAt && (
             <InfoRow
               icon="check-circle-outline"
-              label="Accepted"
+              label="Confirm"
               value={formatDateTime(trip.acceptedAt)}
             />
           )}
           {trip.deliveredAt && (
             <InfoRow
               icon="package-check"
-              label="Delivered"
+              label="Deliver"
               value={formatDateTime(trip.deliveredAt)}
             />
           )}
@@ -385,12 +482,10 @@ export default function TripDetailScreen() {
         <View
           style={[styles.actionBar, { paddingBottom: insets.bottom + 16 }]}
         >
-          {canAccept && (
+          {canPayCommission && (
             <Pressable
               style={styles.actionBtn}
-              onPress={() =>
-                handleAction("accept", "Do you want to accept this trip?")
-              }
+              onPress={handlePayCommission}
               disabled={loading}
             >
               <LinearGradient
@@ -404,11 +499,14 @@ export default function TripDetailScreen() {
                 ) : (
                   <>
                     <MaterialCommunityIcons
-                      name="check"
+                      name="cash-check"
                       size={20}
                       color="#fff"
                     />
-                    <Text style={styles.actionBtnText}>Accept Trip</Text>
+                    <View>
+                      <Text style={styles.actionBtnText}>Commission Pay Karo — {formatCurrency(trip.lfiCommission)}</Text>
+                      <Text style={styles.actionBtnSub}>Trip confirm hogi • Merchant ka contact milega</Text>
+                    </View>
                   </>
                 )}
               </LinearGradient>
@@ -418,7 +516,7 @@ export default function TripDetailScreen() {
             <Pressable
               style={styles.actionBtn}
               onPress={() =>
-                handleAction("start", "Start transit for this trip?")
+                handleAction("start", "Kya aap yeh trip shuru karna chahte hain?")
               }
               disabled={loading}
             >
@@ -437,7 +535,7 @@ export default function TripDetailScreen() {
                       size={20}
                       color="#fff"
                     />
-                    <Text style={styles.actionBtnText}>Start Transit</Text>
+                    <Text style={styles.actionBtnText}>Transit Shuru Karo</Text>
                   </>
                 )}
               </LinearGradient>
@@ -449,7 +547,7 @@ export default function TripDetailScreen() {
               onPress={() =>
                 handleAction(
                   "deliver",
-                  "Mark this trip as delivered? This cannot be undone."
+                  "Kya maal deliver ho gaya? Yeh action wapas nahi hoga."
                 )
               }
               disabled={loading}
@@ -469,7 +567,7 @@ export default function TripDetailScreen() {
                       size={20}
                       color="#fff"
                     />
-                    <Text style={styles.actionBtnText}>Mark as Delivered</Text>
+                    <Text style={styles.actionBtnText}>Deliver Mark Karo</Text>
                   </>
                 )}
               </LinearGradient>
@@ -479,7 +577,7 @@ export default function TripDetailScreen() {
             <Pressable
               style={styles.cancelBtn}
               onPress={() =>
-                handleAction("cancel", "Cancel this trip? This cannot be undone.")
+                handleAction("cancel", "Kya aap yeh trip cancel karna chahte hain? Yeh wapas nahi hoga.")
               }
               disabled={loading}
             >
@@ -488,7 +586,7 @@ export default function TripDetailScreen() {
                 size={18}
                 color={Colors.error}
               />
-              <Text style={styles.cancelBtnText}>Cancel Trip</Text>
+              <Text style={styles.cancelBtnText}>Trip Cancel Karo</Text>
             </Pressable>
           )}
         </View>
@@ -662,6 +760,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     gap: 2,
   },
+  unlockedCard: {
+    borderColor: Colors.success,
+    borderWidth: 1.5,
+  },
+  unlockedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   infoRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -674,7 +782,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
-    width: 120,
+    width: 110,
     flexShrink: 0,
   },
   infoValue: {
@@ -683,6 +791,67 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
     textAlign: "right",
+  },
+  lockedCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: "#4A3500",
+    borderStyle: "dashed",
+    alignItems: "center",
+    gap: 12,
+  },
+  lockedIconRow: {
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  lockedIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#2A1F00",
+    borderWidth: 2,
+    borderColor: "#4A3500",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lockedTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.warning,
+  },
+  lockedSubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  lockedItems: {
+    width: "100%",
+    gap: 8,
+    marginTop: 4,
+  },
+  lockedItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: 10,
+  },
+  lockedItemText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  lockedBlur: {
+    flex: 1,
+    height: 10,
+    backgroundColor: Colors.border,
+    borderRadius: 4,
+    marginLeft: "auto",
   },
   actionBar: {
     position: "absolute",
@@ -710,12 +879,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 15,
-    gap: 8,
+    gap: 10,
   },
   actionBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+  actionBtnSub: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.75)",
+    marginTop: 2,
   },
   cancelBtn: {
     flexDirection: "row",
