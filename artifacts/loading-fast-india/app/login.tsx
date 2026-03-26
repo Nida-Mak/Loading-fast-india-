@@ -363,7 +363,13 @@ export default function LoginScreen() {
                   <Text style={styles.errorText}>{errors.businessName}</Text>
                 ) : null}
 
-                <Text style={styles.sectionLabel}>Aadhaar Card</Text>
+                <View style={styles.gstLabelRow}>
+                  <Text style={styles.sectionLabel}>Aadhaar Card</Text>
+                  <View style={[styles.optionalBadge, { backgroundColor: Colors.error + "18", borderColor: Colors.error + "33" }]}>
+                    <Ionicons name="alert-circle" size={11} color={Colors.error} />
+                    <Text style={[styles.optionalBadgeText, { color: Colors.error }]}>MANDATORY — Zaroori</Text>
+                  </View>
+                </View>
 
                 <View
                   style={[
@@ -413,14 +419,18 @@ export default function LoginScreen() {
                   </Text>
                 </View>
 
-                <Text style={styles.sectionLabel}>
-                  GST Number{" "}
-                  <Text style={styles.optionalLabel}>(Optional)</Text>
-                </Text>
+                <View style={styles.gstLabelRow}>
+                  <Text style={styles.sectionLabel}>GST Number</Text>
+                  <View style={styles.optionalBadge}>
+                    <Ionicons name="checkmark-circle" size={11} color={Colors.success} />
+                    <Text style={styles.optionalBadgeText}>OPTIONAL — Zaroori Nahi</Text>
+                  </View>
+                </View>
 
                 <View
                   style={[
                     styles.inputGroup,
+                    { borderColor: Colors.border, borderWidth: 1, borderStyle: "dashed" },
                     errors.gst ? styles.inputError : null,
                   ]}
                 >
@@ -431,7 +441,7 @@ export default function LoginScreen() {
                   />
                   <TextInput
                     style={[styles.input, { textTransform: "uppercase" }]}
-                    placeholder="22AAAAA0000A1Z5"
+                    placeholder="GST hai to daalen, nahi to khali chhodein"
                     placeholderTextColor={Colors.textMuted}
                     value={gstNumber}
                     onChangeText={(v) => {
@@ -458,10 +468,10 @@ export default function LoginScreen() {
                   <Ionicons
                     name="information-circle-outline"
                     size={12}
-                    color={Colors.textMuted}
+                    color={Colors.success}
                   />
-                  <Text style={styles.aadhaarNoteText}>
-                    15-character GST Identification Number (GSTIN). Format: State Code + PAN + Entity.
+                  <Text style={[styles.aadhaarNoteText, { color: Colors.success }]}>
+                    GST optional hai — sirf Aadhaar zaroori hai. GST nahi hai to yeh khali chhodein.
                   </Text>
                 </View>
               </>
@@ -801,6 +811,29 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     textTransform: "none",
+  },
+  gstLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  optionalBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.success + "18",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.success + "33",
+  },
+  optionalBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
+    letterSpacing: 0.5,
   },
   privacyLink: {
     color: Colors.primary,
