@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import WebView from "react-native-webview";
 
@@ -23,7 +23,6 @@ function buildMapHtml(lat: number, lng: number, driverName: string, fromCity: st
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body, #map { width: 100%; height: 100%; background: #0A0A0F; }
-  .truck-icon { font-size: 28px; }
   .info-box {
     position: absolute;
     bottom: 12px;
@@ -39,35 +38,36 @@ function buildMapHtml(lat: number, lng: number, driverName: string, fromCity: st
   }
   .info-box .driver { font-size: 14px; font-weight: bold; color: #E85D04; }
   .info-box .route { font-size: 12px; color: #8888AA; margin-top: 2px; }
-  .info-box .live { 
+  .live-dot {
     display: inline-block;
+    width: 8px; height: 8px;
     background: #10B981;
-    color: white;
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 20px;
-    margin-bottom: 4px;
-    font-weight: bold;
+    border-radius: 50%;
+    margin-right: 5px;
+    animation: pulse 1.5s infinite;
+  }
+  .live-label { font-size: 10px; color: #10B981; font-weight: bold; letter-spacing: 1px; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="info-box">
-  <div class="live">● LIVE</div>
-  <div class="driver">🚛 ${driverName}</div>
-  <div class="route">${fromCity} → ${toCity}</div>
+  <div><span class="live-dot"></span><span class="live-label">LIVE</span></div>
+  <div class="driver">&#x1F69B; ${driverName}</div>
+  <div class="route">${fromCity} &#x2192; ${toCity}</div>
 </div>
 <script>
   var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([${lat}, ${lng}], 14);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-  }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
   var truckIcon = L.divIcon({
-    html: '<div style="background:#E85D04;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.5);">🚛</div>',
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
+    html: '<div style="background:#E85D04;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.5);">&#x1F69B;</div>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
     className: ''
   });
 
@@ -75,20 +75,14 @@ function buildMapHtml(lat: number, lng: number, driverName: string, fromCity: st
 
   function updateLocation(newLat, newLng) {
     marker.setLatLng([newLat, newLng]);
-    map.panTo([newLat, newLng]);
+    map.panTo([newLat, newLng], { animate: true, duration: 0.8 });
   }
 
   window.addEventListener('message', function(e) {
-    try {
-      var data = JSON.parse(e.data);
-      if (data.lat && data.lng) updateLocation(data.lat, data.lng);
-    } catch(err) {}
+    try { var d = JSON.parse(e.data); if (d.lat && d.lng) updateLocation(d.lat, d.lng); } catch(err) {}
   });
   document.addEventListener('message', function(e) {
-    try {
-      var data = JSON.parse(e.data);
-      if (data.lat && data.lng) updateLocation(data.lat, data.lng);
-    } catch(err) {}
+    try { var d = JSON.parse(e.data); if (d.lat && d.lng) updateLocation(d.lat, d.lng); } catch(err) {}
   });
 </script>
 </body>
@@ -97,7 +91,16 @@ function buildMapHtml(lat: number, lng: number, driverName: string, fromCity: st
 
 export default function LiveMap({ lat, lng, driverName = "Driver", fromCity = "From", toCity = "To", ageSeconds }: Props) {
   const isStale = ageSeconds !== undefined && ageSeconds > 60;
-  const html = buildMapHtml(lat, lng, driverName, fromCity, toCity);
+  const webViewRef = useRef<WebView>(null);
+  const initializedRef = useRef(false);
+  const initialHtmlRef = useRef(buildMapHtml(lat, lng, driverName, fromCity, toCity));
+
+  useEffect(() => {
+    if (!webViewRef.current) return;
+    if (!initializedRef.current) return;
+    const js = `updateLocation(${lat}, ${lng}); true;`;
+    webViewRef.current.injectJavaScript(js);
+  }, [lat, lng]);
 
   if (Platform.OS === "web") {
     return (
@@ -107,12 +110,8 @@ export default function LiveMap({ lat, lng, driverName = "Driver", fromCity = "F
         <Text style={styles.webCoords}>
           {driverName} — {lat.toFixed(5)}, {lng.toFixed(5)}
         </Text>
-        <Text style={styles.webSub}>
-          {fromCity} → {toCity}
-        </Text>
-        {isStale && (
-          <Text style={styles.staleText}>⚠️ Location purani ho sakti hai</Text>
-        )}
+        <Text style={styles.webSub}>{fromCity} → {toCity}</Text>
+        {isStale && <Text style={styles.staleText}>⚠️ Location purani ho sakti hai</Text>}
         <Text
           style={styles.webLink}
           onPress={() => {
@@ -134,12 +133,19 @@ export default function LiveMap({ lat, lng, driverName = "Driver", fromCity = "F
         </View>
       )}
       <WebView
+        ref={webViewRef}
         style={styles.map}
-        source={{ html }}
+        source={{ html: initialHtmlRef.current }}
         javaScriptEnabled
         domStorageEnabled
         scrollEnabled={false}
         bounces={false}
+        onLoad={() => {
+          initializedRef.current = true;
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`updateLocation(${lat}, ${lng}); true;`);
+          }
+        }}
       />
     </View>
   );
@@ -182,9 +188,7 @@ const styles = StyleSheet.create({
     minHeight: 180,
     justifyContent: "center",
   },
-  webIcon: {
-    fontSize: 36,
-  },
+  webIcon: { fontSize: 36 },
   webTitle: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
