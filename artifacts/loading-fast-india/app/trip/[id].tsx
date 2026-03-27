@@ -209,7 +209,7 @@ function UserRatingBadge({ rating, totalRatings, isVerified, name }: {
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, user, registeredUsers, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser, reportFraud } =
+  const { trips, user, registeredUsers, fraudCases, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser, getFraudCasesForTrip } =
     useApp();
   const insets = useSafeAreaInsets();
 
@@ -219,8 +219,13 @@ export default function TripDetailScreen() {
   const [pendingAction, setPendingAction] = useState<{ action: "start" | "deliver" | "cancel"; msg: string } | null>(null);
   const [selectedStars, setSelectedStars] = useState(0);
   const [ratingLoading, setRatingLoading] = useState(false);
-  const [showFraudConfirm, setShowFraudConfirm] = useState(false);
-  const [fraudDone, setFraudDone] = useState(false);
+  const tripFraudCases = useMemo(
+    () => (id ? getFraudCasesForTrip(id) : []),
+    [fraudCases, id]
+  );
+  const pendingFraudAgainstMe = tripFraudCases.find(
+    (c) => c.accusedId === user?.id && c.status === "pending_merchant"
+  );
 
   const isInTransit = trip?.status === "in_transit";
   const driverTracking = useDriverLocationTracking(
@@ -328,15 +333,6 @@ export default function TripDetailScreen() {
   const handleCallPhone = async (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await Linking.openURL(`tel:+91${phone}`);
-  };
-
-  const handleFraudReport = async () => {
-    if (!trip || !user) return;
-    setShowFraudConfirm(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    await reportFraud(trip.id);
-    setFraudDone(true);
-    await Linking.openURL("https://cybercrime.gov.in/Webform/Accept.aspx");
   };
 
   const submitRating = async () => {
@@ -701,6 +697,23 @@ export default function TripDetailScreen() {
           </View>
         )}
 
+        {/* ===== FRAUD NOTICE FOR ACCUSED (MERCHANT/DRIVER) ===== */}
+        {pendingFraudAgainstMe && (
+          <Pressable
+            style={styles.fraudNoticeCard}
+            onPress={() => router.push(`/trip/fraud/${trip.id}` as any)}
+          >
+            <MaterialCommunityIcons name="alert-circle" size={22} color={Colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fraudNoticeTitle}>Aapke Khilaf Shikaayat Darj Hai!</Text>
+              <Text style={styles.fraudNoticeText}>
+                {pendingFraudAgainstMe.reporterName} ne fraude ki report ki hai. 30 min mein jawab dena zaroori hai.
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.error} />
+          </Pressable>
+        )}
+
         {/* ===== CHAT + FRAUD ACTION SECTION ===== */}
         {trip.driverId && trip.status !== "pending" && trip.status !== "cancelled" &&
           (user?.role === "merchant" || (user?.role === "driver" && trip.commissionPaid && trip.driverId === user.id)) && (
@@ -715,48 +728,23 @@ export default function TripDetailScreen() {
               </Text>
             </Pressable>
 
-            {!(trip.fraudReportedBy ?? []).includes(user?.id ?? "") && (
+            {!(trip.fraudReportedBy ?? []).includes(user?.id ?? "") ? (
               <Pressable
                 style={styles.fraudBtn}
-                onPress={() => setShowFraudConfirm(true)}
+                onPress={() => router.push(`/trip/fraud/${trip.id}` as any)}
               >
                 <MaterialCommunityIcons name="alert-octagon-outline" size={18} color={Colors.error} />
-                <Text style={styles.fraudBtnText}>Fraude Report</Text>
+                <Text style={styles.fraudBtnText}>Fraude Shikaayat</Text>
               </Pressable>
-            )}
-            {(trip.fraudReportedBy ?? []).includes(user?.id ?? "") && (
-              <View style={styles.fraudDoneBtn}>
+            ) : (
+              <Pressable
+                style={styles.fraudDoneBtn}
+                onPress={() => router.push(`/trip/fraud/${trip.id}` as any)}
+              >
                 <MaterialCommunityIcons name="shield-check" size={18} color={Colors.success} />
-                <Text style={styles.fraudDoneText}>Complaint Filed</Text>
-              </View>
+                <Text style={styles.fraudDoneText}>Complaint Darj ▶</Text>
+              </Pressable>
             )}
-          </View>
-        )}
-
-        {/* Fraud Inline Confirmation */}
-        {showFraudConfirm && (
-          <View style={styles.fraudConfirmBox}>
-            <MaterialCommunityIcons name="alert-octagon" size={28} color={Colors.error} />
-            <Text style={styles.fraudConfirmTitle}>Fraude Complaint File Karein?</Text>
-            <Text style={styles.fraudConfirmSub}>
-              Yeh action LFI ke records mein save hoga aur aapko India Cybercrime Portal par le jaayega jahan aap online complaint darz kar sakte hain.{"\n\n"}
-              Bilty: {trip.biltyNumber}{"\n"}
-              Trip: {trip.fromCity} → {trip.toCity}
-            </Text>
-            <View style={styles.confirmBtns}>
-              <Pressable
-                style={styles.confirmNo}
-                onPress={() => setShowFraudConfirm(false)}
-              >
-                <Text style={styles.confirmNoText}>Nahi, Wapas</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.confirmYes, styles.confirmYesRed]}
-                onPress={handleFraudReport}
-              >
-                <Text style={styles.confirmYesText}>Haan, Complaint Karo</Text>
-              </Pressable>
-            </View>
           </View>
         )}
 
@@ -1795,28 +1783,27 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: Colors.success,
   },
-  fraudConfirmBox: {
-    margin: 16,
-    marginTop: 0,
-    backgroundColor: "#140000",
-    borderRadius: 16,
-    padding: 20,
+  fraudNoticeCard: {
+    marginHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
+    backgroundColor: "#140000",
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.error,
-    alignItems: "center",
   },
-  fraudConfirmTitle: {
-    fontSize: 16,
+  fraudNoticeTitle: {
+    fontSize: 14,
     fontFamily: "Inter_700Bold",
     color: Colors.error,
-    textAlign: "center",
   },
-  fraudConfirmSub: {
-    fontSize: 13,
+  fraudNoticeText: {
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
     color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
+    marginTop: 2,
+    lineHeight: 17,
   },
 });

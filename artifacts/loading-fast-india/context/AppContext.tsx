@@ -75,10 +75,43 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export type FraudCaseStatus =
+  | "pending_merchant"
+  | "merchant_responded"
+  | "auto_escalated"
+  | "resolved";
+
+export interface FraudCase {
+  id: string;
+  tripId: string;
+  biltyNumber: string;
+  fromCity: string;
+  toCity: string;
+  reportedBy: "driver" | "merchant";
+  reporterId: string;
+  reporterName: string;
+  reporterPhone: string;
+  accusedId: string;
+  accusedName: string;
+  accusedPhone: string;
+  accusedRole: "driver" | "merchant";
+  description: string;
+  reportedAt: string;
+  deadlineAt: string;
+  status: FraudCaseStatus;
+  accusedResponse?: string;
+  accusedRespondedAt?: string;
+  escalatedAt?: string;
+  caseRef: string;
+}
+
+export const FRAUD_RESPONSE_MINUTES = 30;
+
 interface AppContextValue {
   user: User | null;
   trips: Trip[];
   registeredUsers: User[];
+  fraudCases: FraudCase[];
   isLoading: boolean;
   login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -89,6 +122,11 @@ interface AppContextValue {
   cancelTrip: (tripId: string) => Promise<void>;
   rateUser: (targetUserId: string, tripId: string, stars: number, raterRole: "merchant" | "driver") => Promise<void>;
   reportFraud: (tripId: string) => Promise<void>;
+  fileFraudComplaint: (tripId: string, description: string) => Promise<FraudCase>;
+  respondToFraudCase: (caseId: string, response: string) => Promise<void>;
+  escalateFraudCase: (caseId: string) => Promise<void>;
+  getFraudCasesForTrip: (tripId: string) => FraudCase[];
+  getFraudCasesAgainstUser: (userId: string) => FraudCase[];
   getChatMessages: (tripId: string) => Promise<ChatMessage[]>;
   sendChatMessage: (tripId: string, text: string) => Promise<void>;
   getMyTrips: () => Trip[];
@@ -191,6 +229,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
+  const [fraudCases, setFraudCases] = useState<FraudCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -199,13 +238,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [userJson, tripsJson, usersJson] = await Promise.all([
+      const [userJson, tripsJson, usersJson, fraudJson] = await Promise.all([
         AsyncStorage.getItem("lfi_user"),
         AsyncStorage.getItem("lfi_trips"),
         AsyncStorage.getItem("lfi_users"),
+        AsyncStorage.getItem("lfi_fraud_cases"),
       ]);
       if (userJson) setUser(JSON.parse(userJson));
       if (usersJson) setRegisteredUsers(JSON.parse(usersJson));
+      if (fraudJson) setFraudCases(JSON.parse(fraudJson));
       if (tripsJson) {
         setTrips(JSON.parse(tripsJson));
       } else {
@@ -216,6 +257,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const saveFraudCases = async (updated: FraudCase[]) => {
+    setFraudCases(updated);
+    await AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(updated));
   };
 
   const saveTrips = async (updatedTrips: Trip[]) => {
@@ -355,6 +401,108 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await saveTrips(updated);
     },
     [user, trips]
+  );
+
+  const fileFraudComplaint = useCallback(
+    async (tripId: string, description: string): Promise<FraudCase> => {
+      if (!user) throw new Error("Not logged in");
+      const trip = trips.find((t) => t.id === tripId);
+      if (!trip) throw new Error("Trip not found");
+
+      const reportedAt = new Date();
+      const deadlineAt = new Date(reportedAt.getTime() + FRAUD_RESPONSE_MINUTES * 60 * 1000);
+      const year = reportedAt.getFullYear();
+      const seq = Math.floor(Math.random() * 9000) + 1000;
+      const caseRef = `LFI-FIR-${year}-${seq}`;
+
+      const isDriver = user.role === "driver";
+      const accusedId = isDriver ? trip.merchantId : (trip.driverId ?? "");
+      const accusedName = isDriver ? trip.merchantName : (trip.driverName ?? "Unknown");
+      const accusedPhone = isDriver ? trip.merchantPhone : (trip.driverPhone ?? "");
+      const accusedRole: "merchant" | "driver" = isDriver ? "merchant" : "driver";
+
+      const fraudCase: FraudCase = {
+        id: generateId(),
+        tripId,
+        biltyNumber: trip.biltyNumber,
+        fromCity: trip.fromCity,
+        toCity: trip.toCity,
+        reportedBy: user.role as "driver" | "merchant",
+        reporterId: user.id,
+        reporterName: user.name,
+        reporterPhone: user.phone,
+        accusedId,
+        accusedName,
+        accusedPhone,
+        accusedRole,
+        description,
+        reportedAt: reportedAt.toISOString(),
+        deadlineAt: deadlineAt.toISOString(),
+        status: "pending_merchant",
+        caseRef,
+      };
+
+      const updatedCases = [fraudCase, ...fraudCases];
+      await saveFraudCases(updatedCases);
+
+      const updatedTrips = trips.map((t) =>
+        t.id === tripId
+          ? { ...t, fraudReportedBy: [...(t.fraudReportedBy ?? []), user.id] }
+          : t
+      );
+      await saveTrips(updatedTrips);
+
+      return fraudCase;
+    },
+    [user, trips, fraudCases]
+  );
+
+  const respondToFraudCase = useCallback(
+    async (caseId: string, response: string) => {
+      if (!user) return;
+      const updated = fraudCases.map((c) =>
+        c.id === caseId
+          ? {
+              ...c,
+              status: "merchant_responded" as FraudCaseStatus,
+              accusedResponse: response,
+              accusedRespondedAt: new Date().toISOString(),
+            }
+          : c
+      );
+      await saveFraudCases(updated);
+    },
+    [user, fraudCases]
+  );
+
+  const escalateFraudCase = useCallback(
+    async (caseId: string) => {
+      const updated = fraudCases.map((c) =>
+        c.id === caseId
+          ? {
+              ...c,
+              status: "auto_escalated" as FraudCaseStatus,
+              escalatedAt: new Date().toISOString(),
+            }
+          : c
+      );
+      await saveFraudCases(updated);
+    },
+    [fraudCases]
+  );
+
+  const getFraudCasesForTrip = useCallback(
+    (tripId: string): FraudCase[] => {
+      return fraudCases.filter((c) => c.tripId === tripId);
+    },
+    [fraudCases]
+  );
+
+  const getFraudCasesAgainstUser = useCallback(
+    (userId: string): FraudCase[] => {
+      return fraudCases.filter((c) => c.accusedId === userId);
+    },
+    [fraudCases]
   );
 
   const getChatMessages = useCallback(
@@ -534,6 +682,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user,
       trips,
       registeredUsers,
+      fraudCases,
       isLoading,
       login,
       logout,
@@ -544,6 +693,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cancelTrip,
       rateUser,
       reportFraud,
+      fileFraudComplaint,
+      respondToFraudCase,
+      escalateFraudCase,
+      getFraudCasesForTrip,
+      getFraudCasesAgainstUser,
       getChatMessages,
       sendChatMessage,
       getMyTrips,
@@ -555,6 +709,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user,
       trips,
       registeredUsers,
+      fraudCases,
       isLoading,
       login,
       logout,
@@ -565,6 +720,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cancelTrip,
       rateUser,
       reportFraud,
+      fileFraudComplaint,
+      respondToFraudCase,
+      escalateFraudCase,
+      getFraudCasesForTrip,
+      getFraudCasesAgainstUser,
       getChatMessages,
       sendChatMessage,
       getMyTrips,

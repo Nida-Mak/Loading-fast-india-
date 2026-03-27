@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { User, useApp } from "@/context/AppContext";
+import { FraudCase, User, useApp } from "@/context/AppContext";
 
 type FilterTab = "all" | "merchant" | "driver";
 
@@ -122,7 +122,7 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, trips, registeredUsers, removeUser } = useApp();
+  const { user, trips, registeredUsers, fraudCases, removeUser } = useApp();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
@@ -148,6 +148,14 @@ export default function AdminScreen() {
       : activeTab === "driver"
       ? drivers
       : registeredUsers;
+
+  const pendingFrauds = fraudCases.filter((c) => c.status === "pending_merchant");
+  const escalatedFrauds = fraudCases.filter((c) => c.status === "auto_escalated");
+
+  const habitualOffenders = registeredUsers.filter((u) => {
+    const casesAgainst = fraudCases.filter((c) => c.accusedId === u.id);
+    return casesAgainst.length >= 2;
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -198,6 +206,20 @@ export default function AdminScreen() {
             label="LFI Commission"
             value={"₹" + totalCommission.toLocaleString("en-IN")}
             color={Colors.success}
+          />
+        </View>
+        <View style={styles.statsRow}>
+          <StatCard
+            icon="shield-alert-outline"
+            label="Fraud Pending"
+            value={pendingFrauds.length}
+            color={Colors.error}
+          />
+          <StatCard
+            icon="alert-octagon-outline"
+            label="Auto Escalated"
+            value={escalatedFrauds.length}
+            color="#8B5CF6"
           />
         </View>
 
@@ -292,6 +314,94 @@ export default function AdminScreen() {
             </Pressable>
           ))}
         </View>
+
+        {/* ===== FRAUD CASES SECTION ===== */}
+        {fraudCases.length > 0 && (
+          <View style={styles.fraudSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: Colors.error }]}>
+                Fraud Shikaayatein ({fraudCases.length})
+              </Text>
+              {escalatedFrauds.length > 0 && (
+                <View style={styles.escalatedBadge}>
+                  <Text style={styles.escalatedBadgeText}>{escalatedFrauds.length} Escalated</Text>
+                </View>
+              )}
+            </View>
+
+            {habitualOffenders.length > 0 && (
+              <View style={styles.habitualSection}>
+                <MaterialCommunityIcons name="account-alert" size={16} color={Colors.error} />
+                <Text style={styles.habitualTitle}>
+                  Habitual Offenders ({habitualOffenders.length})
+                </Text>
+                {habitualOffenders.map((u) => {
+                  const count = fraudCases.filter((c) => c.accusedId === u.id).length;
+                  return (
+                    <View key={u.id} style={styles.habitualCard}>
+                      <MaterialCommunityIcons
+                        name={u.role === "merchant" ? "store-alert" : "truck-alert"}
+                        size={18}
+                        color={Colors.error}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.habitualName}>{u.name}</Text>
+                        <Text style={styles.habitualMeta}>
+                          {u.role === "merchant" ? "Merchant" : "Driver"} • +91 {u.phone}
+                        </Text>
+                      </View>
+                      <View style={styles.habitualCountBadge}>
+                        <Text style={styles.habitualCount}>{count} cases</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {fraudCases.slice(0, 15).map((fc) => (
+              <Pressable
+                key={fc.id}
+                style={styles.fraudCard}
+                onPress={() => router.push(`/trip/fraud/${fc.tripId}` as any)}
+              >
+                <View style={styles.fraudCardHeader}>
+                  <View style={[
+                    styles.fraudStatusBadge,
+                    {
+                      backgroundColor:
+                        fc.status === "auto_escalated" ? Colors.error + "22"
+                        : fc.status === "merchant_responded" ? Colors.success + "22"
+                        : Colors.warning + "22"
+                    }
+                  ]}>
+                    <Text style={[
+                      styles.fraudStatusText,
+                      {
+                        color:
+                          fc.status === "auto_escalated" ? Colors.error
+                          : fc.status === "merchant_responded" ? Colors.success
+                          : Colors.warning
+                      }
+                    ]}>
+                      {fc.status === "auto_escalated" ? "Auto Escalated"
+                        : fc.status === "merchant_responded" ? "Jawab Mila"
+                        : "Pending"}
+                    </Text>
+                  </View>
+                  <Text style={styles.fraudCaseRef}>{fc.caseRef}</Text>
+                </View>
+                <Text style={styles.fraudAccused}>
+                  {fc.accusedName} ({fc.accusedRole === "merchant" ? "Merchant" : "Driver"}) ke khilaf
+                </Text>
+                <Text style={styles.fraudDesc} numberOfLines={2}>{fc.description}</Text>
+                <Text style={styles.fraudMeta}>
+                  {fc.biltyNumber} • {fc.fromCity} → {fc.toCity}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -529,5 +639,106 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_500Medium",
     color: Colors.success,
+  },
+  fraudSection: {
+    marginTop: 24,
+    gap: 8,
+  },
+  escalatedBadge: {
+    backgroundColor: Colors.error + "22",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  escalatedBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.error,
+  },
+  habitualSection: {
+    backgroundColor: "#140000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.error + "66",
+    gap: 10,
+  },
+  habitualTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  habitualCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 8,
+    padding: 10,
+  },
+  habitualName: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+  },
+  habitualMeta: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  habitualCountBadge: {
+    backgroundColor: Colors.error + "22",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  habitualCount: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.error,
+  },
+  fraudCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  fraudCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  fraudStatusBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  fraudStatusText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  fraudCaseRef: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textMuted,
+  },
+  fraudAccused: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+  },
+  fraudDesc: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
+  fraudMeta: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
   },
 });
