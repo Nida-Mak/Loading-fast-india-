@@ -122,7 +122,7 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, trips, registeredUsers, fraudCases, removeUser } = useApp();
+  const { user, trips, registeredUsers, fraudCases, removeUser, reinstateUser } = useApp();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
@@ -156,6 +156,8 @@ export default function AdminScreen() {
     const casesAgainst = fraudCases.filter((c) => c.accusedId === u.id);
     return casesAgainst.length >= 2;
   });
+
+  const suspendedUsers = registeredUsers.filter((u) => u.suspended);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -314,6 +316,46 @@ export default function AdminScreen() {
             </Pressable>
           ))}
         </View>
+
+        {/* ===== SUSPENDED USERS SECTION ===== */}
+        {suspendedUsers.length > 0 && (
+          <View style={styles.suspendedSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: Colors.error }]}>
+                Suspended Accounts ({suspendedUsers.length})
+              </Text>
+              <View style={styles.escalatedBadge}>
+                <Text style={styles.escalatedBadgeText}>Auto Banned</Text>
+              </View>
+            </View>
+            {suspendedUsers.map((u) => (
+              <View key={u.id} style={styles.suspendedCard}>
+                <View style={styles.suspendedCardLeft}>
+                  <MaterialCommunityIcons
+                    name={u.role === "merchant" ? "store-remove" : "truck-remove"}
+                    size={20}
+                    color={Colors.error}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.suspendedName}>{u.name}</Text>
+                    <Text style={styles.suspendedPhone}>+91 {u.phone} • {u.role === "merchant" ? "Merchant" : "Driver"}</Text>
+                    <Text style={styles.suspendedReason} numberOfLines={2}>{u.suspendReason}</Text>
+                    <Text style={styles.suspendedAt}>
+                      Suspend: {u.suspendedAt ? new Date(u.suspendedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={styles.reinstateBtn}
+                  onPress={() => reinstateUser(u.id)}
+                >
+                  <MaterialCommunityIcons name="account-check" size={14} color={Colors.success} />
+                  <Text style={styles.reinstateBtnText}>Wapas Do</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* ===== FRAUD CASES SECTION ===== */}
         {fraudCases.length > 0 && (
@@ -638,6 +680,68 @@ const styles = StyleSheet.create({
   commissionText: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
+    color: Colors.success,
+  },
+  suspendedSection: {
+    marginTop: 24,
+    gap: 8,
+  },
+  suspendedCard: {
+    backgroundColor: "#140000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.error + "66",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  suspendedCardLeft: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  suspendedName: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+  },
+  suspendedPhone: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  suspendedReason: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.error,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  suspendedAt: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 3,
+  },
+  reinstateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.success + "18",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.success + "44",
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  reinstateBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
     color: Colors.success,
   },
   fraudSection: {

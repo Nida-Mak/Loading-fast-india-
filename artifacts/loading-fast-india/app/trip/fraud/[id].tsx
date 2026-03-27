@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { FraudCase, FRAUD_RESPONSE_MINUTES, useApp } from "@/context/AppContext";
+import { FraudCase, FRAUD_RESPONSE_MINUTES, IpcSection, useApp } from "@/context/AppContext";
 
 function formatDateTime(dateStr?: string) {
   if (!dateStr) return "—";
@@ -467,6 +467,52 @@ export default function FraudCaseScreen() {
                 {formatDateTime((activeCase ?? myReportedCase)?.reportedAt)}
               </Text>
             </View>
+
+            {/* IPC / BNS Dhara Card */}
+            {((activeCase ?? myReportedCase)?.ipcSections?.length ?? 0) > 0 && (
+              <View style={styles.ipcCard}>
+                <View style={styles.ipcHeader}>
+                  <MaterialCommunityIcons name="gavel" size={18} color={Colors.error} />
+                  <Text style={styles.ipcTitle}>Laagu Dharayen (IPC / BNS)</Text>
+                </View>
+                <Text style={styles.ipcSubtitle}>
+                  Yeh Indian Penal Code aur Bharatiya Nyaya Sanhita ki dharayen is shikaayat par laagu hoti hain:
+                </Text>
+                {(activeCase ?? myReportedCase)!.ipcSections.map((sec: IpcSection, i: number) => (
+                  <View key={i} style={styles.ipcRow}>
+                    <View style={styles.ipcSectionBadge}>
+                      <Text style={styles.ipcSectionText}>{sec.section}</Text>
+                      <Text style={styles.ipcBnsText}>{sec.bns}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.ipcTitleText}>{sec.title}</Text>
+                      <Text style={styles.ipcPunishment}>
+                        <Text style={{ color: Colors.error }}>Saza: </Text>{sec.punishment}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                <View style={styles.ipcWarning}>
+                  <MaterialCommunityIcons name="alert" size={14} color={Colors.warning} />
+                  <Text style={styles.ipcWarningText}>
+                    Yeh dharayen court mein use ki ja sakti hain. FIR darj karwane ke liye nazdiki police station jaayein ya 100/112 par call karein.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Suspension Notice */}
+            {(activeCase ?? myReportedCase)?.accusedSuspended && (
+              <View style={styles.suspensionNotice}>
+                <MaterialCommunityIcons name="account-cancel" size={22} color={Colors.error} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suspensionTitle}>Account Suspend Ho Gaya!</Text>
+                  <Text style={styles.suspensionText}>
+                    {(activeCase ?? myReportedCase)?.accusedName} ka LFI account fraud complaint ke karan automatically suspend kar diya gaya hai. Ve dobara login nahi kar sakte.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {(activeCase ?? myReportedCase)?.status === "pending_merchant" && (
               <>
@@ -1072,5 +1118,107 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: "center",
     lineHeight: 19,
+  },
+  ipcCard: {
+    backgroundColor: "#0D0005",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.error + "55",
+    gap: 10,
+    marginTop: 4,
+  },
+  ipcHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  ipcTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  ipcSubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
+  ipcRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+    backgroundColor: Colors.card,
+    borderRadius: 10,
+    padding: 10,
+  },
+  ipcSectionBadge: {
+    alignItems: "center",
+    gap: 3,
+    minWidth: 70,
+  },
+  ipcSectionText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+    textAlign: "center",
+  },
+  ipcBnsText: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: "#8B5CF6",
+    textAlign: "center",
+  },
+  ipcTitleText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
+    lineHeight: 17,
+  },
+  ipcPunishment: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: 3,
+  },
+  ipcWarning: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    backgroundColor: Colors.warning + "11",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: Colors.warning + "33",
+  },
+  ipcWarningText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.warning,
+    flex: 1,
+    lineHeight: 16,
+  },
+  suspensionNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    backgroundColor: "#140000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    marginTop: 4,
+  },
+  suspensionTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  suspensionText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 17,
   },
 });

@@ -32,6 +32,16 @@ export interface User {
   rating: number;
   totalRatings: number;
   isVerified: boolean;
+  suspended?: boolean;
+  suspendedAt?: string;
+  suspendReason?: string;
+}
+
+export interface IpcSection {
+  section: string;
+  bns: string;
+  title: string;
+  punishment: string;
 }
 
 export interface Trip {
@@ -95,7 +105,9 @@ export interface FraudCase {
   accusedName: string;
   accusedPhone: string;
   accusedRole: "driver" | "merchant";
+  category: string;
   description: string;
+  ipcSections: IpcSection[];
   reportedAt: string;
   deadlineAt: string;
   status: FraudCaseStatus;
@@ -103,9 +115,51 @@ export interface FraudCase {
   accusedRespondedAt?: string;
   escalatedAt?: string;
   caseRef: string;
+  accusedSuspended?: boolean;
 }
 
 export const FRAUD_RESPONSE_MINUTES = 30;
+
+export const IPC_SECTIONS_MAP: Record<string, IpcSection[]> = {
+  "Maal deliver nahi kiya": [
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating & Dishonest Delivery / Dhokha", punishment: "7 saal + Jurmana" },
+    { section: "IPC 120B", bns: "BNS 61", title: "Criminal Conspiracy / Sazish", punishment: "Upar wali dhara ke barabar" },
+  ],
+  "Maal mein nuksan hua": [
+    { section: "IPC 425", bns: "BNS 324", title: "Mischief / Nuqsaan pahunchana", punishment: "3 mah + Jurmana" },
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+  ],
+  "Maal chhupa liya / chori": [
+    { section: "IPC 403", bns: "BNS 314", title: "Dishonest Misappropriation / Haram Kabza", punishment: "2 saal + Jurmana" },
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
+  ],
+  "Pehle zyada paise maange": [
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
+    { section: "IPC 386", bns: "BNS 308(3)", title: "Extortion / Dhamki se Vasuli", punishment: "10 saal + Jurmana" },
+  ],
+  "Fake bilty / documents": [
+    { section: "IPC 467", bns: "BNS 336(3)", title: "Forgery of Valuable Security / Qimti Dastavez Mein Jaalasaazi", punishment: "Umar qaid + Jurmana" },
+    { section: "IPC 468", bns: "BNS 336(4)", title: "Forgery for Cheating / Dhokhe ke liye Jaalasaazi", punishment: "7 saal + Jurmana" },
+    { section: "IPC 471", bns: "BNS 340(1)", title: "Using Forged Document / Jaali Kagaz Istemal", punishment: "IPC 467 ke barabar" },
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
+  ],
+  "Trip accept karke gaayab ho gaya": [
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+    { section: "IPC 120B", bns: "BNS 61", title: "Criminal Conspiracy / Sazish", punishment: "Upar wali dhara ke barabar" },
+  ],
+  "Dhamki / badtameezi ki": [
+    { section: "IPC 503", bns: "BNS 351", title: "Criminal Intimidation / Dhamki", punishment: "2 saal + Jurmana" },
+    { section: "IPC 386", bns: "BNS 308(3)", title: "Extortion / Dhamki se Vasuli", punishment: "10 saal + Jurmana" },
+    { section: "IPC 34", bns: "BNS 3(5)", title: "Acts in Common Intention / Mil ke Jurm", punishment: "Upar wali dhara ke barabar" },
+  ],
+  "Kuch aur": [
+    { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+  ],
+};
 
 interface AppContextValue {
   user: User | null;
@@ -133,6 +187,8 @@ interface AppContextValue {
   getAvailableTrips: () => Trip[];
   getEarnings: () => { total: number; commission: number; thisMonth: number; completedTrips: number };
   removeUser: (userId: string) => Promise<void>;
+  suspendUser: (userId: string, reason: string) => Promise<void>;
+  reinstateUser: (userId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -286,6 +342,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
       const existingUser = existing.find((u) => u.phone === phone && u.role === role);
 
+      if (existingUser?.suspended) {
+        throw new Error(`SUSPENDED:${existingUser.suspendReason ?? "Fraud complaint ke karan aapka account band kar diya gaya hai."}`);
+      }
+
       const newUser: User = existingUser ?? {
         id: generateId(),
         name,
@@ -320,6 +380,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const removeUser = useCallback(
     async (userId: string) => {
       const updated = registeredUsers.filter((u) => u.id !== userId);
+      await saveUsers(updated);
+    },
+    [registeredUsers]
+  );
+
+  const suspendUser = useCallback(
+    async (userId: string, reason: string) => {
+      const updated = registeredUsers.map((u) =>
+        u.id === userId
+          ? { ...u, suspended: true, suspendedAt: new Date().toISOString(), suspendReason: reason }
+          : u
+      );
+      await saveUsers(updated);
+      if (user?.id === userId) {
+        setUser(null);
+        await AsyncStorage.removeItem("lfi_user");
+      }
+    },
+    [registeredUsers, user]
+  );
+
+  const reinstateUser = useCallback(
+    async (userId: string) => {
+      const updated = registeredUsers.map((u) =>
+        u.id === userId
+          ? { ...u, suspended: false, suspendedAt: undefined, suspendReason: undefined }
+          : u
+      );
       await saveUsers(updated);
     },
     [registeredUsers]
@@ -421,6 +509,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const accusedPhone = isDriver ? trip.merchantPhone : (trip.driverPhone ?? "");
       const accusedRole: "merchant" | "driver" = isDriver ? "merchant" : "driver";
 
+      const colonIdx = description.indexOf(":");
+      const category = colonIdx > 0 ? description.substring(0, colonIdx).trim() : "Kuch aur";
+      const ipcSections = IPC_SECTIONS_MAP[category] ?? IPC_SECTIONS_MAP["Kuch aur"];
+
       const fraudCase: FraudCase = {
         id: generateId(),
         tripId,
@@ -435,6 +527,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         accusedName,
         accusedPhone,
         accusedRole,
+        category,
+        ipcSections,
         description,
         reportedAt: reportedAt.toISOString(),
         deadlineAt: deadlineAt.toISOString(),
@@ -477,18 +571,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const escalateFraudCase = useCallback(
     async (caseId: string) => {
+      const fc = fraudCases.find((c) => c.id === caseId);
+      if (!fc) return;
+
+      const suspendReason =
+        `Fraud Case ${fc.caseRef}: ${fc.category} — 30 min mein jawab na dene par auto-escalation. ` +
+        `Dharayen: ${fc.ipcSections.map((s) => `${s.section} (${s.bns})`).join(", ")}`;
+
+      const updatedUsers = registeredUsers.map((u) =>
+        u.id === fc.accusedId
+          ? { ...u, suspended: true, suspendedAt: new Date().toISOString(), suspendReason }
+          : u
+      );
+      await saveUsers(updatedUsers);
+
       const updated = fraudCases.map((c) =>
         c.id === caseId
           ? {
               ...c,
               status: "auto_escalated" as FraudCaseStatus,
               escalatedAt: new Date().toISOString(),
+              accusedSuspended: true,
             }
           : c
       );
       await saveFraudCases(updated);
+
+      if (user?.id === fc.accusedId) {
+        setUser(null);
+        await AsyncStorage.removeItem("lfi_user");
+      }
     },
-    [fraudCases]
+    [fraudCases, registeredUsers, user]
   );
 
   const getFraudCasesForTrip = useCallback(
@@ -704,6 +818,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getAvailableTrips,
       getEarnings,
       removeUser,
+      suspendUser,
+      reinstateUser,
     }),
     [
       user,
@@ -731,6 +847,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getAvailableTrips,
       getEarnings,
       removeUser,
+      suspendUser,
+      reinstateUser,
     ]
   );
 

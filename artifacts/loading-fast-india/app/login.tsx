@@ -87,6 +87,8 @@ export default function LoginScreen() {
     adminPin?: string;
   }>({});
 
+  const [suspendedMsg, setSuspendedMsg] = useState("");
+
   const formatAadhaar = (raw: string) => {
     const digits = raw.replace(/[^0-9]/g, "").slice(0, 12);
     return digits.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3").trim();
@@ -134,6 +136,7 @@ export default function LoginScreen() {
     }
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSuspendedMsg("");
     try {
       const extras =
         selectedRole === "merchant"
@@ -145,7 +148,12 @@ export default function LoginScreen() {
           : undefined;
       await login(name.trim(), phone.trim(), selectedRole, selectedCity, extras);
       router.replace("/(tabs)");
-    } catch {
+    } catch (err: any) {
+      const msg: string = err?.message ?? "";
+      if (msg.startsWith("SUSPENDED:")) {
+        setSuspendedMsg(msg.replace("SUSPENDED:", "").trim());
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setLoading(false);
     }
@@ -184,6 +192,17 @@ export default function LoginScreen() {
             <Text style={styles.brandName}>Loading Fast India</Text>
             <Text style={styles.tagline}>India ka sabse tez logistics platform</Text>
           </View>
+
+          {suspendedMsg ? (
+            <View style={styles.suspendedBanner}>
+              <MaterialCommunityIcons name="account-cancel" size={28} color={Colors.error} />
+              <Text style={styles.suspendedTitle}>Account Suspend Hai!</Text>
+              <Text style={styles.suspendedMsg}>{suspendedMsg}</Text>
+              <Text style={styles.suspendedContact}>
+                Shikayat ke liye: admin@loadingfastindia.com ya helpline par sampark karein.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.form}>
             <Text style={styles.sectionLabel}>Select your role</Text>
@@ -839,5 +858,37 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontFamily: "Inter_500Medium",
     textDecorationLine: "underline",
+  },
+  suspendedBanner: {
+    marginHorizontal: 0,
+    marginBottom: 16,
+    backgroundColor: "#140000",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: Colors.error,
+    alignItems: "center",
+    gap: 10,
+  },
+  suspendedTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+    textAlign: "center",
+  },
+  suspendedMsg: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  suspendedContact: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    textAlign: "center",
+    lineHeight: 17,
+    fontStyle: "italic",
   },
 });
