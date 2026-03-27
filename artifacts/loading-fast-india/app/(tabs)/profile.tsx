@@ -186,6 +186,34 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Rating + Verified Badge */}
+          {(user?.totalRatings ?? 0) > 0 && (
+            <View style={styles.ratingBadgeRow}>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <MaterialCommunityIcons
+                    key={s}
+                    name={s <= Math.round(user?.rating ?? 0) ? "star" : "star-outline"}
+                    size={16}
+                    color="#F59E0B"
+                  />
+                ))}
+                <Text style={styles.ratingScore}>
+                  {" "}{(user?.rating ?? 0).toFixed(1)}
+                </Text>
+                <Text style={styles.ratingCount}>
+                  ({user?.totalRatings} ratings)
+                </Text>
+              </View>
+              {user?.isVerified && (
+                <View style={styles.verifiedBadge}>
+                  <MaterialCommunityIcons name="check-decagram" size={13} color="#fff" />
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              )}
+            </View>
+          )}
+
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{totalTrips}</Text>
@@ -759,5 +787,45 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     lineHeight: 19,
+  },
+  ratingBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  starsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  ratingScore: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#F59E0B",
+    marginLeft: 4,
+  },
+  ratingCount: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginLeft: 2,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  verifiedText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 0.5,
   },
 });

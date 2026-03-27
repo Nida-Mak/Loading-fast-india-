@@ -29,6 +29,9 @@ export interface User {
   gstVerified?: boolean;
   city: string;
   registeredAt?: string;
+  rating: number;
+  totalRatings: number;
+  isVerified: boolean;
 }
 
 export interface Trip {
@@ -56,6 +59,8 @@ export interface Trip {
   vehicleType: string;
   description?: string;
   commissionPaid?: boolean;
+  driverRatedByMerchant?: boolean;
+  merchantRatedByDriver?: boolean;
 }
 
 interface AppContextValue {
@@ -65,11 +70,12 @@ interface AppContextValue {
   isLoading: boolean;
   login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
-  createTrip: (trip: Omit<Trip, "id" | "biltyNumber" | "status" | "merchantId" | "merchantName" | "merchantPhone" | "merchantCity" | "lfiCommission" | "driverEarning" | "createdAt" | "commissionPaid">) => Promise<void>;
+  createTrip: (trip: Omit<Trip, "id" | "biltyNumber" | "status" | "merchantId" | "merchantName" | "merchantPhone" | "merchantCity" | "lfiCommission" | "driverEarning" | "createdAt" | "commissionPaid" | "driverRatedByMerchant" | "merchantRatedByDriver">) => Promise<void>;
   payCommissionAndAccept: (tripId: string) => Promise<void>;
   startTrip: (tripId: string) => Promise<void>;
   deliverTrip: (tripId: string) => Promise<void>;
   cancelTrip: (tripId: string) => Promise<void>;
+  rateUser: (targetUserId: string, tripId: string, stars: number, raterRole: "merchant" | "driver") => Promise<void>;
   getMyTrips: () => Trip[];
   getAvailableTrips: () => Trip[];
   getEarnings: () => { total: number; commission: number; thisMonth: number; completedTrips: number };
@@ -80,6 +86,8 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 const COMMISSION_RATE = 0.05;
 export const ADMIN_PIN = "LFI2024";
+export const VERIFIED_MIN_RATING = 4.0;
+export const VERIFIED_MIN_COUNT = 3;
 
 const SAMPLE_TRIPS: Trip[] = [
   {
@@ -160,6 +168,10 @@ function generateBiltyNumber(): string {
   return `LFI-${year}-${num}`;
 }
 
+function computeVerified(rating: number, totalRatings: number): boolean {
+  return rating >= VERIFIED_MIN_RATING && totalRatings >= VERIFIED_MIN_COUNT;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -209,7 +221,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       city: string,
       extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }
     ) => {
-      const newUser: User = {
+      const existingJson = await AsyncStorage.getItem("lfi_users");
+      const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
+      const existingUser = existing.find((u) => u.phone === phone && u.role === role);
+
+      const newUser: User = existingUser ?? {
         id: generateId(),
         name,
         phone,
@@ -217,15 +233,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         aadhaarVerified: false,
         city,
         registeredAt: new Date().toISOString(),
+        rating: 0,
+        totalRatings: 0,
+        isVerified: false,
         ...(extras ?? {}),
       };
+
       setUser(newUser);
       await AsyncStorage.setItem("lfi_user", JSON.stringify(newUser));
 
       if (role !== "admin") {
-        const existingJson = await AsyncStorage.getItem("lfi_users");
-        const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
-        const withoutDuplicate = existing.filter((u) => u.phone !== phone);
+        const withoutDuplicate = existing.filter((u) => u.phone !== phone || u.role !== role);
         const updated = [newUser, ...withoutDuplicate];
         await saveUsers(updated);
       }
@@ -261,6 +279,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         | "driverEarning"
         | "createdAt"
         | "commissionPaid"
+        | "driverRatedByMerchant"
+        | "merchantRatedByDriver"
       >
     ) => {
       if (!user) return;
@@ -341,6 +361,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [trips]
   );
 
+  const rateUser = useCallback(
+    async (
+      targetUserId: string,
+      tripId: string,
+      stars: number,
+      raterRole: "merchant" | "driver"
+    ) => {
+      const updatedUsers = registeredUsers.map((u) => {
+        if (u.id === targetUserId) {
+          const newTotal = (u.totalRatings ?? 0) + 1;
+          const newRating = (((u.rating ?? 0) * (u.totalRatings ?? 0)) + stars) / newTotal;
+          return {
+            ...u,
+            rating: Math.round(newRating * 10) / 10,
+            totalRatings: newTotal,
+            isVerified: computeVerified(newRating, newTotal),
+          };
+        }
+        return u;
+      });
+      await saveUsers(updatedUsers);
+
+      const updatedTrips = trips.map((t) => {
+        if (t.id === tripId) {
+          if (raterRole === "merchant") return { ...t, driverRatedByMerchant: true };
+          if (raterRole === "driver") return { ...t, merchantRatedByDriver: true };
+        }
+        return t;
+      });
+      await saveTrips(updatedTrips);
+
+      if (user?.id === targetUserId) {
+        const rated = updatedUsers.find((u) => u.id === targetUserId);
+        if (rated) {
+          setUser(rated);
+          await AsyncStorage.setItem("lfi_user", JSON.stringify(rated));
+        }
+      }
+    },
+    [registeredUsers, trips, user]
+  );
+
   const getMyTrips = useCallback((): Trip[] => {
     if (!user) return [];
     if (user.role === "merchant") {
@@ -417,6 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       startTrip,
       deliverTrip,
       cancelTrip,
+      rateUser,
       getMyTrips,
       getAvailableTrips,
       getEarnings,
@@ -434,6 +497,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       startTrip,
       deliverTrip,
       cancelTrip,
+      rateUser,
       getMyTrips,
       getAvailableTrips,
       getEarnings,

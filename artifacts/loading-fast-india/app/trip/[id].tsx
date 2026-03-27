@@ -175,9 +175,41 @@ function InfoRow({
   );
 }
 
+function UserRatingBadge({ rating, totalRatings, isVerified, name }: {
+  rating: number;
+  totalRatings: number;
+  isVerified: boolean;
+  name: string;
+}) {
+  if (totalRatings === 0) return null;
+  const stars = Math.round(rating);
+  return (
+    <View style={styles.ratingBadgeRow}>
+      <View style={styles.starsSmallRow}>
+        {[1, 2, 3, 4, 5].map((s) => (
+          <MaterialCommunityIcons
+            key={s}
+            name={s <= stars ? "star" : "star-outline"}
+            size={14}
+            color={Colors.warning}
+          />
+        ))}
+        <Text style={styles.ratingBadgeScore}> {rating.toFixed(1)}</Text>
+        <Text style={styles.ratingBadgeCount}> ({totalRatings} rating{totalRatings !== 1 ? "s" : ""})</Text>
+      </View>
+      {isVerified && (
+        <View style={styles.verifiedBadge}>
+          <MaterialCommunityIcons name="check-decagram" size={13} color="#fff" />
+          <Text style={styles.verifiedText}>Verified</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, user, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip } =
+  const { trips, user, registeredUsers, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser } =
     useApp();
   const insets = useSafeAreaInsets();
 
@@ -185,6 +217,8 @@ export default function TripDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ action: "start" | "deliver" | "cancel"; msg: string } | null>(null);
+  const [selectedStars, setSelectedStars] = useState(0);
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   const isInTransit = trip?.status === "in_transit";
   const driverTracking = useDriverLocationTracking(
@@ -288,6 +322,30 @@ export default function TripDetailScreen() {
       setLoading(false);
     }
   };
+
+  const submitRating = async () => {
+    if (!trip || !user || selectedStars === 0) return;
+    setRatingLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      if (user.role === "merchant" && trip.driverId) {
+        await rateUser(trip.driverId, trip.id, selectedStars, "merchant");
+      } else if (user.role === "driver" && trip.merchantId) {
+        await rateUser(trip.merchantId, trip.id, selectedStars, "driver");
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  const driverUser = trip?.driverId
+    ? registeredUsers.find((u) => u.id === trip.driverId) ?? null
+    : null;
+  const merchantUser = trip?.merchantId
+    ? registeredUsers.find((u) => u.id === trip.merchantId) ?? null
+    : null;
 
   return (
     <View style={styles.container}>
@@ -514,6 +572,14 @@ export default function TripDetailScreen() {
                 label="Merchant"
                 value={trip.merchantName}
               />
+              {merchantUser && (
+                <UserRatingBadge
+                  rating={merchantUser.rating}
+                  totalRatings={merchantUser.totalRatings}
+                  isVerified={merchantUser.isVerified}
+                  name={merchantUser.name}
+                />
+              )}
               <InfoRow
                 icon="map-marker"
                 label="Pickup Sheher"
@@ -590,6 +656,14 @@ export default function TripDetailScreen() {
               label="Driver"
               value={trip.driverName || "Assign nahi hua"}
             />
+            {driverUser && (
+              <UserRatingBadge
+                rating={driverUser.rating}
+                totalRatings={driverUser.totalRatings}
+                isVerified={driverUser.isVerified}
+                name={driverUser.name}
+              />
+            )}
           </View>
         )}
 
@@ -615,6 +689,105 @@ export default function TripDetailScreen() {
             />
           )}
         </View>
+
+        {/* ===== RATING CARD ===== */}
+        {trip.status === "delivered" && user?.role === "merchant" && trip.driverId && (
+          trip.driverRatedByMerchant ? (
+            <View style={styles.ratingDoneCard}>
+              <MaterialCommunityIcons name="star-check" size={24} color={Colors.warning} />
+              <Text style={styles.ratingDoneText}>Aapne driver ko rate kar diya ✓</Text>
+            </View>
+          ) : (
+            <View style={styles.ratingCard}>
+              <View style={styles.ratingCardHeader}>
+                <MaterialCommunityIcons name="star-circle" size={22} color={Colors.warning} />
+                <Text style={styles.ratingCardTitle}>Driver Ko Rate Karo</Text>
+              </View>
+              <Text style={styles.ratingCardSub}>
+                {trip.driverName} ne aapka maal safely deliver kiya. Unhe rating do:
+              </Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Pressable key={s} onPress={() => setSelectedStars(s)} style={styles.starBtn}>
+                    <MaterialCommunityIcons
+                      name={s <= selectedStars ? "star" : "star-outline"}
+                      size={36}
+                      color={Colors.warning}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.ratingLabel}>
+                {selectedStars === 0 ? "Star select karo" :
+                 selectedStars === 1 ? "⭐ Bahut Bura" :
+                 selectedStars === 2 ? "⭐⭐ Theek Nahi" :
+                 selectedStars === 3 ? "⭐⭐⭐ Theek Tha" :
+                 selectedStars === 4 ? "⭐⭐⭐⭐ Achha" :
+                 "⭐⭐⭐⭐⭐ Zabardast!"}
+              </Text>
+              <Pressable
+                style={[styles.ratingSubmitBtn, selectedStars === 0 && styles.ratingSubmitDisabled]}
+                onPress={submitRating}
+                disabled={selectedStars === 0 || ratingLoading}
+              >
+                {ratingLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.ratingSubmitText}>Rating Submit Karo</Text>
+                )}
+              </Pressable>
+            </View>
+          )
+        )}
+
+        {trip.status === "delivered" && user?.role === "driver" && trip.merchantId && trip.driverId === user.id && (
+          trip.merchantRatedByDriver ? (
+            <View style={styles.ratingDoneCard}>
+              <MaterialCommunityIcons name="star-check" size={24} color={Colors.warning} />
+              <Text style={styles.ratingDoneText}>Aapne merchant ko rate kar diya ✓</Text>
+            </View>
+          ) : (
+            <View style={styles.ratingCard}>
+              <View style={styles.ratingCardHeader}>
+                <MaterialCommunityIcons name="star-circle" size={22} color={Colors.warning} />
+                <Text style={styles.ratingCardTitle}>Merchant Ko Rate Karo</Text>
+              </View>
+              <Text style={styles.ratingCardSub}>
+                {trip.merchantName} ke saath kaam kaisa raha? Unhe rating do:
+              </Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Pressable key={s} onPress={() => setSelectedStars(s)} style={styles.starBtn}>
+                    <MaterialCommunityIcons
+                      name={s <= selectedStars ? "star" : "star-outline"}
+                      size={36}
+                      color={Colors.warning}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.ratingLabel}>
+                {selectedStars === 0 ? "Star select karo" :
+                 selectedStars === 1 ? "⭐ Bahut Bura" :
+                 selectedStars === 2 ? "⭐⭐ Theek Nahi" :
+                 selectedStars === 3 ? "⭐⭐⭐ Theek Tha" :
+                 selectedStars === 4 ? "⭐⭐⭐⭐ Achha" :
+                 "⭐⭐⭐⭐⭐ Zabardast!"}
+              </Text>
+              <Pressable
+                style={[styles.ratingSubmitBtn, selectedStars === 0 && styles.ratingSubmitDisabled]}
+                onPress={submitRating}
+                disabled={selectedStars === 0 || ratingLoading}
+              >
+                {ratingLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.ratingSubmitText}>Rating Submit Karo</Text>
+                )}
+              </Pressable>
+            </View>
+          )
+        )}
 
         {/* Inline Confirmation Dialog */}
         {pendingAction && (
@@ -1339,5 +1512,118 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+
+  ratingCard: {
+    margin: 16,
+    marginTop: 0,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.warning,
+  },
+  ratingCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  ratingCardTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.warning,
+  },
+  ratingCardSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  starsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 4,
+  },
+  starBtn: {
+    padding: 4,
+  },
+  ratingLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  ratingSubmitBtn: {
+    backgroundColor: Colors.warning,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  ratingSubmitDisabled: {
+    opacity: 0.4,
+  },
+  ratingSubmitText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  ratingDoneCard: {
+    margin: 16,
+    marginTop: 0,
+    backgroundColor: "#1A2A1A",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  ratingDoneText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
+  },
+
+  ratingBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingBottom: 6,
+  },
+  starsSmallRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 1,
+  },
+  ratingBadgeScore: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.warning,
+  },
+  ratingBadgeCount: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.success,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  verifiedText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 0.3,
   },
 });
