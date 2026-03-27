@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { get, ref, set } from "firebase/database";
 import React, {
   createContext,
   useCallback,
@@ -7,6 +8,8 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
+import { getFirebaseDB } from "@/lib/firebase";
 
 export type UserRole = "merchant" | "driver" | "admin";
 
@@ -292,22 +295,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadData();
   }, []);
 
+  const fbWrite = async (path: string, data: unknown) => {
+    try {
+      const db = getFirebaseDB();
+      if (db) await set(ref(db, path), data);
+    } catch {}
+  };
+
+  const fbRead = async (path: string): Promise<unknown> => {
+    try {
+      const db = getFirebaseDB();
+      if (!db) return null;
+      const snap = await get(ref(db, path));
+      return snap.exists() ? snap.val() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const snapToArray = <T,>(val: unknown): T[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val as T[];
+    return Object.values(val as Record<string, T>);
+  };
+
   const loadData = async () => {
     try {
-      const [userJson, tripsJson, usersJson, fraudJson] = await Promise.all([
+      const [userJson, localTripsJson, localUsersJson, localFraudJson] = await Promise.all([
         AsyncStorage.getItem("lfi_user"),
         AsyncStorage.getItem("lfi_trips"),
         AsyncStorage.getItem("lfi_users"),
         AsyncStorage.getItem("lfi_fraud_cases"),
       ]);
+
       if (userJson) setUser(JSON.parse(userJson));
-      if (usersJson) setRegisteredUsers(JSON.parse(usersJson));
-      if (fraudJson) setFraudCases(JSON.parse(fraudJson));
-      if (tripsJson) {
-        setTrips(JSON.parse(tripsJson));
+
+      const [fbTrips, fbUsers, fbFraud] = await Promise.all([
+        fbRead("lfi_trips"),
+        fbRead("lfi_users"),
+        fbRead("lfi_fraud_cases"),
+      ]);
+
+      if (fbUsers) {
+        const users = snapToArray<User>(fbUsers);
+        setRegisteredUsers(users);
+        await AsyncStorage.setItem("lfi_users", JSON.stringify(users));
+      } else if (localUsersJson) {
+        setRegisteredUsers(JSON.parse(localUsersJson));
+      }
+
+      if (fbFraud) {
+        const cases = snapToArray<FraudCase>(fbFraud);
+        setFraudCases(cases);
+        await AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(cases));
+      } else if (localFraudJson) {
+        setFraudCases(JSON.parse(localFraudJson));
+      }
+
+      if (fbTrips) {
+        const trips = snapToArray<Trip>(fbTrips);
+        setTrips(trips);
+        await AsyncStorage.setItem("lfi_trips", JSON.stringify(trips));
+      } else if (localTripsJson) {
+        setTrips(JSON.parse(localTripsJson));
       } else {
         setTrips(SAMPLE_TRIPS);
         await AsyncStorage.setItem("lfi_trips", JSON.stringify(SAMPLE_TRIPS));
+        await fbWrite("lfi_trips", Object.fromEntries(SAMPLE_TRIPS.map((t) => [t.id, t])));
       }
     } catch {
     } finally {
@@ -317,17 +371,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const saveFraudCases = async (updated: FraudCase[]) => {
     setFraudCases(updated);
-    await AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(updated));
+    const obj = Object.fromEntries(updated.map((c) => [c.id, c]));
+    await Promise.all([
+      AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(updated)),
+      fbWrite("lfi_fraud_cases", obj),
+    ]);
   };
 
   const saveTrips = async (updatedTrips: Trip[]) => {
     setTrips(updatedTrips);
-    await AsyncStorage.setItem("lfi_trips", JSON.stringify(updatedTrips));
+    const obj = Object.fromEntries(updatedTrips.map((t) => [t.id, t]));
+    await Promise.all([
+      AsyncStorage.setItem("lfi_trips", JSON.stringify(updatedTrips)),
+      fbWrite("lfi_trips", obj),
+    ]);
   };
 
   const saveUsers = async (updatedUsers: User[]) => {
     setRegisteredUsers(updatedUsers);
-    await AsyncStorage.setItem("lfi_users", JSON.stringify(updatedUsers));
+    const obj = Object.fromEntries(updatedUsers.map((u) => [u.id, u]));
+    await Promise.all([
+      AsyncStorage.setItem("lfi_users", JSON.stringify(updatedUsers)),
+      fbWrite("lfi_users", obj),
+    ]);
   };
 
   const login = useCallback(
@@ -622,6 +688,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getChatMessages = useCallback(
     async (tripId: string): Promise<ChatMessage[]> => {
       try {
+        const fbVal = await fbRead(`lfi_chat/${tripId}`);
+        if (fbVal) {
+          const msgs = snapToArray<ChatMessage>(fbVal);
+          msgs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          await AsyncStorage.setItem(`lfi_chat_${tripId}`, JSON.stringify(msgs));
+          return msgs;
+        }
         const json = await AsyncStorage.getItem(`lfi_chat_${tripId}`);
         return json ? JSON.parse(json) : [];
       } catch {
@@ -645,7 +718,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
       };
       const updated = [...existing, msg];
-      await AsyncStorage.setItem(`lfi_chat_${tripId}`, JSON.stringify(updated));
+      await Promise.all([
+        AsyncStorage.setItem(`lfi_chat_${tripId}`, JSON.stringify(updated)),
+        fbWrite(`lfi_chat/${tripId}`, Object.fromEntries(updated.map((m) => [m.id, m]))),
+      ]);
     },
     [user, getChatMessages]
   );
