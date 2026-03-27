@@ -209,7 +209,7 @@ function UserRatingBadge({ rating, totalRatings, isVerified, name }: {
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, user, registeredUsers, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser } =
+  const { trips, user, registeredUsers, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser, reportFraud } =
     useApp();
   const insets = useSafeAreaInsets();
 
@@ -219,6 +219,8 @@ export default function TripDetailScreen() {
   const [pendingAction, setPendingAction] = useState<{ action: "start" | "deliver" | "cancel"; msg: string } | null>(null);
   const [selectedStars, setSelectedStars] = useState(0);
   const [ratingLoading, setRatingLoading] = useState(false);
+  const [showFraudConfirm, setShowFraudConfirm] = useState(false);
+  const [fraudDone, setFraudDone] = useState(false);
 
   const isInTransit = trip?.status === "in_transit";
   const driverTracking = useDriverLocationTracking(
@@ -321,6 +323,20 @@ export default function TripDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCallPhone = async (phone: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await Linking.openURL(`tel:+91${phone}`);
+  };
+
+  const handleFraudReport = async () => {
+    if (!trip || !user) return;
+    setShowFraudConfirm(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    await reportFraud(trip.id);
+    setFraudDone(true);
+    await Linking.openURL("https://cybercrime.gov.in/Webform/Accept.aspx");
   };
 
   const submitRating = async () => {
@@ -602,6 +618,14 @@ export default function TripDetailScreen() {
                 value={"+91 " + trip.consigneePhone}
                 valueColor={Colors.info}
               />
+              <Pressable
+                style={[styles.callBtn, { backgroundColor: Colors.info }]}
+                onPress={() => handleCallPhone(trip.merchantPhone)}
+              >
+                <MaterialCommunityIcons name="phone" size={16} color="#fff" />
+                <Text style={styles.callBtnText}>Merchant Ko Call Karo</Text>
+                <Text style={styles.callBtnNumber}>+91 {trip.merchantPhone}</Text>
+              </Pressable>
             </View>
           ) : (
             <View style={styles.lockedCard}>
@@ -664,6 +688,75 @@ export default function TripDetailScreen() {
                 name={driverUser.name}
               />
             )}
+            {trip.driverPhone && trip.status !== "pending" && (
+              <Pressable
+                style={styles.callBtn}
+                onPress={() => handleCallPhone(trip.driverPhone!)}
+              >
+                <MaterialCommunityIcons name="phone" size={16} color="#fff" />
+                <Text style={styles.callBtnText}>Driver Ko Call Karo</Text>
+                <Text style={styles.callBtnNumber}>+91 {trip.driverPhone}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* ===== CHAT + FRAUD ACTION SECTION ===== */}
+        {trip.driverId && trip.status !== "pending" && trip.status !== "cancelled" &&
+          (user?.role === "merchant" || (user?.role === "driver" && trip.commissionPaid && trip.driverId === user.id)) && (
+          <View style={styles.actionBtnRow}>
+            <Pressable
+              style={styles.chatBtn}
+              onPress={() => router.push(`/trip/chat/${trip.id}` as any)}
+            >
+              <MaterialCommunityIcons name="chat-outline" size={18} color={Colors.primary} />
+              <Text style={styles.chatBtnText}>
+                {user?.role === "driver" ? "Merchant Se Baat Karo" : "Driver Se Baat Karo"}
+              </Text>
+            </Pressable>
+
+            {!(trip.fraudReportedBy ?? []).includes(user?.id ?? "") && (
+              <Pressable
+                style={styles.fraudBtn}
+                onPress={() => setShowFraudConfirm(true)}
+              >
+                <MaterialCommunityIcons name="alert-octagon-outline" size={18} color={Colors.error} />
+                <Text style={styles.fraudBtnText}>Fraude Report</Text>
+              </Pressable>
+            )}
+            {(trip.fraudReportedBy ?? []).includes(user?.id ?? "") && (
+              <View style={styles.fraudDoneBtn}>
+                <MaterialCommunityIcons name="shield-check" size={18} color={Colors.success} />
+                <Text style={styles.fraudDoneText}>Complaint Filed</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Fraud Inline Confirmation */}
+        {showFraudConfirm && (
+          <View style={styles.fraudConfirmBox}>
+            <MaterialCommunityIcons name="alert-octagon" size={28} color={Colors.error} />
+            <Text style={styles.fraudConfirmTitle}>Fraude Complaint File Karein?</Text>
+            <Text style={styles.fraudConfirmSub}>
+              Yeh action LFI ke records mein save hoga aur aapko India Cybercrime Portal par le jaayega jahan aap online complaint darz kar sakte hain.{"\n\n"}
+              Bilty: {trip.biltyNumber}{"\n"}
+              Trip: {trip.fromCity} → {trip.toCity}
+            </Text>
+            <View style={styles.confirmBtns}>
+              <Pressable
+                style={styles.confirmNo}
+                onPress={() => setShowFraudConfirm(false)}
+              >
+                <Text style={styles.confirmNoText}>Nahi, Wapas</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmYes, styles.confirmYesRed]}
+                onPress={handleFraudReport}
+              >
+                <Text style={styles.confirmYesText}>Haan, Complaint Karo</Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -1625,5 +1718,105 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: "#fff",
     letterSpacing: 0.3,
+  },
+
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.success,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 6,
+  },
+  callBtnText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  callBtnNumber: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.8)",
+  },
+
+  actionBtnRow: {
+    marginHorizontal: 16,
+    marginBottom: 0,
+    gap: 10,
+  },
+  chatBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  chatBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.primary,
+  },
+  fraudBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#1A0000",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  fraudBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.error,
+  },
+  fraudDoneBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#001A00",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  fraudDoneText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.success,
+  },
+  fraudConfirmBox: {
+    margin: 16,
+    marginTop: 0,
+    backgroundColor: "#140000",
+    borderRadius: 16,
+    padding: 20,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    alignItems: "center",
+  },
+  fraudConfirmTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+    textAlign: "center",
+  },
+  fraudConfirmSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

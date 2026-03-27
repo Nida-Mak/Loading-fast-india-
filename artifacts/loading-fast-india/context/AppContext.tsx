@@ -49,6 +49,7 @@ export interface Trip {
   merchantCity: string;
   driverId?: string;
   driverName?: string;
+  driverPhone?: string;
   consigneeName: string;
   consigneePhone: string;
   createdAt: string;
@@ -61,6 +62,17 @@ export interface Trip {
   commissionPaid?: boolean;
   driverRatedByMerchant?: boolean;
   merchantRatedByDriver?: boolean;
+  fraudReportedBy?: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  tripId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: "merchant" | "driver";
+  text: string;
+  createdAt: string;
 }
 
 interface AppContextValue {
@@ -76,6 +88,9 @@ interface AppContextValue {
   deliverTrip: (tripId: string) => Promise<void>;
   cancelTrip: (tripId: string) => Promise<void>;
   rateUser: (targetUserId: string, tripId: string, stars: number, raterRole: "merchant" | "driver") => Promise<void>;
+  reportFraud: (tripId: string) => Promise<void>;
+  getChatMessages: (tripId: string) => Promise<ChatMessage[]>;
+  sendChatMessage: (tripId: string, text: string) => Promise<void>;
   getMyTrips: () => Trip[];
   getAvailableTrips: () => Trip[];
   getEarnings: () => { total: number; commission: number; thisMonth: number; completedTrips: number };
@@ -315,6 +330,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               status: "accepted" as TripStatus,
               driverId: user.id,
               driverName: user.name,
+              driverPhone: user.phone,
               acceptedAt: new Date().toISOString(),
               commissionPaid: true,
             }
@@ -323,6 +339,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await saveTrips(updated);
     },
     [user, trips]
+  );
+
+  const reportFraud = useCallback(
+    async (tripId: string) => {
+      if (!user) return;
+      const updated = trips.map((t) =>
+        t.id === tripId
+          ? {
+              ...t,
+              fraudReportedBy: [...(t.fraudReportedBy ?? []), user.id],
+            }
+          : t
+      );
+      await saveTrips(updated);
+    },
+    [user, trips]
+  );
+
+  const getChatMessages = useCallback(
+    async (tripId: string): Promise<ChatMessage[]> => {
+      try {
+        const json = await AsyncStorage.getItem(`lfi_chat_${tripId}`);
+        return json ? JSON.parse(json) : [];
+      } catch {
+        return [];
+      }
+    },
+    []
+  );
+
+  const sendChatMessage = useCallback(
+    async (tripId: string, text: string) => {
+      if (!user || !text.trim()) return;
+      const existing = await getChatMessages(tripId);
+      const msg: ChatMessage = {
+        id: generateId(),
+        tripId,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role as "merchant" | "driver",
+        text: text.trim(),
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...existing, msg];
+      await AsyncStorage.setItem(`lfi_chat_${tripId}`, JSON.stringify(updated));
+    },
+    [user, getChatMessages]
   );
 
   const startTrip = useCallback(
@@ -480,6 +543,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deliverTrip,
       cancelTrip,
       rateUser,
+      reportFraud,
+      getChatMessages,
+      sendChatMessage,
       getMyTrips,
       getAvailableTrips,
       getEarnings,
@@ -498,6 +564,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deliverTrip,
       cancelTrip,
       rateUser,
+      reportFraud,
+      getChatMessages,
+      sendChatMessage,
       getMyTrips,
       getAvailableTrips,
       getEarnings,
