@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { reloadAppAsync } from "expo";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Modal,
@@ -36,9 +36,12 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
   const handleRestart = async () => {
     try {
-      await reloadAppAsync();
-    } catch (restartError) {
-      console.error("Failed to restart app:", restartError);
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.location.reload();
+      } else {
+        router.replace("/");
+      }
+    } catch {
       resetError();
     }
   };

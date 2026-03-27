@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApp, TripStatus } from "@/context/AppContext";
+import LiveMap from "@/components/LiveMap";
+import { useDriverLocationTracking, useMerchantLocationWatch } from "@/hooks/useLocationTracking";
 
 const COMMISSION_UPI = "maksudsaiyed888@oksbi";
 
@@ -182,6 +184,15 @@ export default function TripDetailScreen() {
   const trip = useMemo(() => trips.find((t) => t.id === id), [trips, id]);
   const [loading, setLoading] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ action: "start" | "deliver" | "cancel"; msg: string } | null>(null);
+
+  const isInTransit = trip?.status === "in_transit";
+  const driverTracking = useDriverLocationTracking(
+    id ?? "",
+    user?.name ?? "Driver"
+  );
+  const { location: merchantLiveLocation, loading: locationLoading } =
+    useMerchantLocationWatch(id ?? "", isInTransit && user?.role === "merchant");
 
   if (!trip) {
     return (
@@ -257,35 +268,25 @@ export default function TripDetailScreen() {
     }
   };
 
-  const handleAction = async (
-    action: "start" | "deliver" | "cancel",
-    confirmMsg: string
-  ) => {
-    Alert.alert(
-      "Confirm",
-      confirmMsg,
-      [
-        { text: "Nahi", style: "cancel" },
-        {
-          text: "Haan",
-          onPress: async () => {
-            setLoading(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            try {
-              if (action === "start") await startTrip(trip.id);
-              else if (action === "deliver") await deliverTrip(trip.id);
-              else if (action === "cancel") await cancelTrip(trip.id);
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success
-              );
-            } catch {
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleAction = (action: "start" | "deliver" | "cancel", confirmMsg: string) => {
+    setPendingAction({ action, msg: confirmMsg });
+  };
+
+  const executeAction = async () => {
+    if (!pendingAction || !trip) return;
+    const { action } = pendingAction;
+    setPendingAction(null);
+    setLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      if (action === "start") await startTrip(trip.id);
+      else if (action === "deliver") await deliverTrip(trip.id);
+      else if (action === "cancel") await cancelTrip(trip.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -339,6 +340,121 @@ export default function TripDetailScreen() {
           <Text style={styles.cardTitle}>Trip Progress</Text>
           <StepProgress status={trip.status} />
         </View>
+
+        {/* DRIVER: Location Tracking Card (when in_transit) */}
+        {isInTransit && user?.role === "driver" && trip.driverId === user.id && (
+          <View style={styles.locationCard}>
+            <View style={styles.locationHeader}>
+              <View style={styles.locationHeaderLeft}>
+                <MaterialCommunityIcons
+                  name="map-marker-radius"
+                  size={20}
+                  color={driverTracking.isTracking ? Colors.success : Colors.textMuted}
+                />
+                <View>
+                  <Text style={styles.locationTitle}>Live Location Sharing</Text>
+                  <Text style={styles.locationSubtitle}>
+                    {driverTracking.isTracking
+                      ? "📡 Merchant ko aapka location dikh raha hai"
+                      : "Merchant ko aapka location bhejne ke liye ON karein"}
+                  </Text>
+                </View>
+              </View>
+              {driverTracking.isTracking && (
+                <View style={styles.liveDot}>
+                  <Text style={styles.liveDotText}>LIVE</Text>
+                </View>
+              )}
+            </View>
+
+            {driverTracking.lat && driverTracking.lng && (
+              <View style={styles.coordsRow}>
+                <Ionicons name="location" size={12} color={Colors.primary} />
+                <Text style={styles.coordsText}>
+                  {driverTracking.lat.toFixed(5)}, {driverTracking.lng.toFixed(5)}
+                </Text>
+              </View>
+            )}
+
+            {driverTracking.error && (
+              <View style={styles.locationError}>
+                <Ionicons name="warning" size={14} color={Colors.warning} />
+                <Text style={styles.locationErrorText}>{driverTracking.error}</Text>
+              </View>
+            )}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.trackingBtn,
+                driverTracking.isTracking ? styles.trackingBtnStop : styles.trackingBtnStart,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={driverTracking.isTracking ? driverTracking.stopTracking : driverTracking.startTracking}
+            >
+              <MaterialCommunityIcons
+                name={driverTracking.isTracking ? "map-marker-off" : "map-marker-check"}
+                size={18}
+                color="#fff"
+              />
+              <Text style={styles.trackingBtnText}>
+                {driverTracking.isTracking
+                  ? "Location Sharing Band Karo"
+                  : "Location Sharing Shuru Karo"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* MERCHANT: Live Map Card (when in_transit) */}
+        {isInTransit && user?.role === "merchant" && trip.merchantId === user.id && (
+          <View style={styles.liveMapCard}>
+            <View style={styles.liveMapHeader}>
+              <MaterialCommunityIcons name="map-marker-path" size={20} color={Colors.primary} />
+              <Text style={styles.liveMapTitle}>Driver Ki Live Location</Text>
+              {merchantLiveLocation && (
+                <View style={styles.liveDot}>
+                  <Text style={styles.liveDotText}>LIVE</Text>
+                </View>
+              )}
+            </View>
+
+            {locationLoading && !merchantLiveLocation && (
+              <View style={styles.mapLoading}>
+                <ActivityIndicator color={Colors.primary} />
+                <Text style={styles.mapLoadingText}>Location dhundh raha hai...</Text>
+              </View>
+            )}
+
+            {!locationLoading && !merchantLiveLocation && (
+              <View style={styles.mapNoLocation}>
+                <MaterialCommunityIcons name="map-marker-question" size={36} color={Colors.textMuted} />
+                <Text style={styles.mapNoLocationText}>
+                  Driver ne abhi location sharing shuru nahi ki
+                </Text>
+                <Text style={styles.mapNoLocationSub}>
+                  Driver trip start hone ke baad apni location share karega
+                </Text>
+              </View>
+            )}
+
+            {merchantLiveLocation && (
+              <View style={styles.mapContainer}>
+                <LiveMap
+                  lat={merchantLiveLocation.lat}
+                  lng={merchantLiveLocation.lng}
+                  driverName={merchantLiveLocation.driverName}
+                  fromCity={trip.fromCity}
+                  toCity={trip.toCity}
+                  ageSeconds={merchantLiveLocation.ageSeconds}
+                />
+              </View>
+            )}
+
+            <Text style={styles.mapRefreshNote}>
+              🔄 Location har 10 second mein update hoti hai
+            </Text>
+          </View>
+        )}
 
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Maal Ki Jankari</Text>
@@ -499,6 +615,34 @@ export default function TripDetailScreen() {
             />
           )}
         </View>
+
+        {/* Inline Confirmation Dialog */}
+        {pendingAction && (
+          <View style={styles.confirmBox}>
+            <MaterialCommunityIcons
+              name={pendingAction.action === "cancel" ? "alert-circle" : "information"}
+              size={22}
+              color={pendingAction.action === "cancel" ? Colors.error : Colors.info}
+            />
+            <Text style={styles.confirmMsg}>{pendingAction.msg}</Text>
+            <View style={styles.confirmBtns}>
+              <Pressable
+                style={styles.confirmNo}
+                onPress={() => setPendingAction(null)}
+              >
+                <Text style={styles.confirmNoText}>Nahi</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmYes, pendingAction.action === "cancel" && styles.confirmYesRed]}
+                onPress={executeAction}
+                accessibilityLabel="Confirm Action"
+              >
+                <Text style={styles.confirmYesText}>Haan, Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
       </ScrollView>
 
       {isActive && (
@@ -989,5 +1133,211 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_500Medium",
     color: Colors.primary,
+  },
+
+  locationCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.success,
+  },
+  locationHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  locationHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    flex: 1,
+  },
+  locationTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+  },
+  locationSubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  liveDot: {
+    backgroundColor: Colors.success,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  liveDotText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  coordsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  coordsText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  locationError: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#2A1F00",
+    borderRadius: 8,
+    padding: 10,
+  },
+  locationErrorText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.warning,
+  },
+  trackingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  trackingBtnStart: {
+    backgroundColor: Colors.success,
+  },
+  trackingBtnStop: {
+    backgroundColor: Colors.error,
+  },
+  trackingBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+
+  liveMapCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  liveMapHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  liveMapTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+  },
+  mapContainer: {
+    height: 280,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  mapLoading: {
+    height: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  mapLoadingText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  mapNoLocation: {
+    alignItems: "center",
+    gap: 8,
+    padding: 20,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+  },
+  mapNoLocationText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  mapNoLocationSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    textAlign: "center",
+  },
+  mapRefreshNote: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    textAlign: "center",
+  },
+
+  confirmBox: {
+    margin: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.info,
+    alignItems: "center",
+  },
+  confirmMsg: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: Colors.text,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  confirmBtns: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  confirmNo: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: "center",
+  },
+  confirmNoText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textSecondary,
+  },
+  confirmYes: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.info,
+    alignItems: "center",
+  },
+  confirmYesRed: {
+    backgroundColor: Colors.error,
+  },
+  confirmYesText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
 });
