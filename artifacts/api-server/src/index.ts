@@ -22,4 +22,18 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  const domain = process.env["REPLIT_DEV_DOMAIN"];
+  if (domain) {
+    const pingUrl = `https://${domain}/api-server/api/healthz`;
+    setInterval(async () => {
+      try {
+        const res = await fetch(pingUrl);
+        logger.info({ status: res.status }, "Self-ping OK");
+      } catch (e: any) {
+        logger.warn({ err: e?.message }, "Self-ping failed");
+      }
+    }, 14 * 60 * 1000);
+    logger.info({ pingUrl }, "Self-ping started (every 14 min)");
+  }
 });
