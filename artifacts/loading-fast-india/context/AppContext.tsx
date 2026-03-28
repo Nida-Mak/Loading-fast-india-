@@ -272,6 +272,7 @@ interface AppContextValue {
   getMyTrips: () => Trip[];
   getAvailableTrips: () => Trip[];
   getEarnings: () => { total: number; commission: number; thisMonth: number; completedTrips: number };
+  deleteTrip: (tripId: string) => Promise<void>;
   removeUser: (userId: string) => Promise<void>;
   suspendUser: (userId: string, reason: string) => Promise<void>;
   reinstateUser: (userId: string) => Promise<void>;
@@ -621,6 +622,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     await AsyncStorage.removeItem("lfi_user");
   }, []);
+
+  const deleteTrip = useCallback(
+    async (tripId: string) => {
+      const updated = trips.filter((t) => t.id !== tripId);
+      await saveTrips(updated);
+    },
+    [trips]
+  );
 
   const removeUser = useCallback(
     async (userId: string) => {
@@ -1170,6 +1179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getMyTrips,
       getAvailableTrips,
       getEarnings,
+      deleteTrip,
       removeUser,
       suspendUser,
       reinstateUser,
@@ -1200,6 +1210,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getMyTrips,
       getAvailableTrips,
       getEarnings,
+      deleteTrip,
       removeUser,
       suspendUser,
       reinstateUser,

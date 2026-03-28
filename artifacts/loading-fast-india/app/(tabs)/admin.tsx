@@ -132,7 +132,8 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, trips, registeredUsers, fraudCases, removeUser, reinstateUser } = useApp();
+  const { user, trips, registeredUsers, fraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [waUnlocked, setWaUnlocked] = useState(false);
@@ -383,13 +384,15 @@ export default function AdminScreen() {
 
         <View style={styles.allTripsSection}>
           <Text style={styles.sectionTitle}>Sabhi Trips ({trips.length})</Text>
-          {trips.slice(0, 20).map((t) => (
-            <Pressable
-              key={t.id}
-              style={styles.tripRow}
-              onPress={() => router.push(`/trip/${t.id}`)}
-            >
-              <View style={{ flex: 1 }}>
+          {trips.length === 0 && (
+            <Text style={styles.tripMerchant}>Koi trip nahi hai</Text>
+          )}
+          {trips.map((t) => (
+            <View key={t.id} style={styles.tripRow}>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => router.push(`/trip/${t.id}`)}
+              >
                 <Text style={styles.tripBilty}>{t.biltyNumber}</Text>
                 <Text style={styles.tripRoute}>
                   {t.fromCity} → {t.toCity}
@@ -397,8 +400,8 @@ export default function AdminScreen() {
                 <Text style={styles.tripMerchant}>
                   {t.merchantName} • {t.driverName ?? "Driver nahi mila"}
                 </Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
+              </Pressable>
+              <View style={{ alignItems: "flex-end", gap: 6 }}>
                 <View
                   style={[
                     styles.statusDot,
@@ -419,8 +422,25 @@ export default function AdminScreen() {
                 <Text style={styles.commissionText}>
                   ₹{t.lfiCommission.toLocaleString("en-IN")} fee
                 </Text>
+                <Pressable
+                  onPress={async () => {
+                    setDeletingTripId(t.id);
+                    try {
+                      await deleteTrip(t.id);
+                    } finally {
+                      setDeletingTripId(null);
+                    }
+                  }}
+                  style={styles.tripDeleteBtn}
+                >
+                  {deletingTripId === t.id ? (
+                    <ActivityIndicator size={12} color={Colors.error} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={14} color={Colors.error} />
+                  )}
+                </Pressable>
               </View>
-            </Pressable>
+            </View>
           ))}
         </View>
 
@@ -956,6 +976,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  tripDeleteBtn: {
+    backgroundColor: Colors.error + "18",
+    borderRadius: 6,
+    padding: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusDot: {
     width: 8,
