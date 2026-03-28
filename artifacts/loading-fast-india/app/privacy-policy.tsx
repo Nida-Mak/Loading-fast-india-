@@ -42,9 +42,9 @@ const SECTIONS: Section[] = [
     title: "Commission-Only Business Model",
     titleHi: "Sirf Commission aadharit vyavsay model",
     content:
-      "LFI charges a fixed 5% service commission on each freight transaction. This commission is deducted transparently from the freight amount agreed upon by the Merchant and Driver. Beyond this commission, LFI has NO financial interest, ownership, or liability in the freight amount, goods, or transportation contract between parties.",
+      "LFI charges a fixed 2% service commission on each freight transaction. This commission is deducted transparently from the freight amount agreed upon by the Merchant and Driver. Beyond this commission, LFI has NO financial interest, ownership, or liability in the freight amount, goods, or transportation contract between parties.",
     contentHi:
-      "LFI har freight transaction par nishchit 5% service commission leta hai. Ye commission Merchant aur Driver dwara tay kiye gaye freight amount se seedha kaat li jaati hai. Is commission ke alawa, LFI ka freight amount, maal, ya partiyoon ke beech transportation contract mein KISI BHI PRAKAAR ka arthik hit, swamitva, ya dayitva NAHI HAI.",
+      "LFI har freight transaction par nishchit 2% service commission leta hai. Ye commission Merchant aur Driver dwara tay kiye gaye freight amount se seedha kaat li jaati hai. Is commission ke alawa, LFI ka freight amount, maal, ya partiyoon ke beech transportation contract mein KISI BHI PRAKAAR ka arthik hit, swamitva, ya dayitva NAHI HAI.",
     important: true,
   },
   {

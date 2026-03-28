@@ -162,7 +162,7 @@ export default function EarningsScreen() {
               <>
                 <View style={styles.totalMetaDivider} />
                 <View style={styles.totalMetaItem}>
-                  <Text style={styles.totalMetaValue}>5%</Text>
+                  <Text style={styles.totalMetaValue}>2%</Text>
                   <Text style={styles.totalMetaLabel}>LFI Commission</Text>
                 </View>
               </>
@@ -214,9 +214,9 @@ export default function EarningsScreen() {
             <Text style={styles.infoText}>
               LFI charges{" "}
               <Text style={{ color: Colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                5% service commission
+                2% service commission
               </Text>{" "}
-              on every freight amount. Your earning = Freight - 5% Commission.
+              on every freight amount. Your earning = Freight - 2% Commission.
             </Text>
           </View>
         )}
@@ -231,7 +231,7 @@ export default function EarningsScreen() {
             <Text style={styles.infoText}>
               LFI earns{" "}
               <Text style={{ color: Colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                5% of each freight amount
+                2% of each freight amount
               </Text>{" "}
               as service commission. Total platform earnings shown above.
             </Text>

@@ -472,7 +472,7 @@ export default function BookTripScreen() {
                 </Text>
               </View>
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabelRed}>LFI Commission (5%)</Text>
+                <Text style={styles.breakdownLabelRed}>LFI Commission (2%)</Text>
                 <Text style={styles.breakdownValueRed}>
                   -₹{commission.toLocaleString("en-IN")}
                 </Text>

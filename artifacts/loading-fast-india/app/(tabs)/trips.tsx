@@ -136,7 +136,7 @@ function CommissionModal({
             </View>
             <View style={modalStyles.amountDivider} />
             <View style={modalStyles.amountRow}>
-              <Text style={modalStyles.commissionLabel}>LFI Commission (5%)</Text>
+              <Text style={modalStyles.commissionLabel}>LFI Commission (2%)</Text>
               <Text style={modalStyles.commissionValue}>{formatCurrency(trip.lfiCommission)}</Text>
             </View>
             <View style={modalStyles.amountDivider} />
