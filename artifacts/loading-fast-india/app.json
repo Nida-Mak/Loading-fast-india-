@@ -8,7 +8,7 @@
     "scheme": "loading-fast-india",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "owner": "Nida-12",
+    "owner": "loading-12",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -16,7 +16,7 @@
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 3000,
-      "url": "https://u.expo.dev/EXPO_PROJECT_ID_PLACEHOLDER"
+      "url": "https://u.expo.dev/5724d7d2-964c-42c8-838b-71b41c9f2390"
     },
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -54,7 +54,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "EXPO_PROJECT_ID_PLACEHOLDER"
+        "projectId": "5724d7d2-964c-42c8-838b-71b41c9f2390"
       }
     }
   }
