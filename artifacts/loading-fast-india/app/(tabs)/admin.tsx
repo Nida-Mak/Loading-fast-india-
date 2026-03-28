@@ -444,11 +444,21 @@ export default function AdminScreen() {
                     color={Colors.error}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.suspendedName}>{u.name}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={styles.suspendedName}>{u.name}</Text>
+                      {u.blacklisted && (
+                        <View style={{ backgroundColor: "#7f1d1d", borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "800", color: "#fca5a5", letterSpacing: 0.5 }}>⛔ BLACKLISTED</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.suspendedPhone}>+91 {u.phone} • {u.role === "merchant" ? "Merchant" : "Driver"}</Text>
-                    <Text style={styles.suspendedReason} numberOfLines={2}>{u.suspendReason}</Text>
+                    <Text style={styles.suspendedReason} numberOfLines={2}>{u.blacklisted ? u.blacklistReason : u.suspendReason}</Text>
                     <Text style={styles.suspendedAt}>
-                      Suspend: {u.suspendedAt ? new Date(u.suspendedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {u.blacklisted
+                        ? `Blacklisted: ${u.blacklistedAt ? new Date(u.blacklistedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}`
+                        : `Suspend: ${u.suspendedAt ? new Date(u.suspendedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}`
+                      }
                     </Text>
                   </View>
                 </View>

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { get, ref, set } from "firebase/database";
+import * as Location from "expo-location";
 import React, {
   createContext,
   useCallback,
@@ -38,6 +39,9 @@ export interface User {
   suspended?: boolean;
   suspendedAt?: string;
   suspendReason?: string;
+  blacklisted?: boolean;
+  blacklistedAt?: string;
+  blacklistReason?: string;
 }
 
 export interface IpcSection {
@@ -579,6 +583,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
       const existingUser = existing.find((u) => u.phone === phone && u.role === role);
 
+      if (existingUser?.blacklisted) {
+        throw new Error(`BLACKLISTED:Your account is blocked under BNS Section 316 (Theft) & 318 (Cheating). GPS & IP logged for Mangrol, Junagadh jurisdiction. Reason: ${existingUser.blacklistReason ?? "Fraud / Theft detected."}`);
+      }
+
       if (existingUser?.suspended) {
         throw new Error(`SUSPENDED:${existingUser.suspendReason ?? "Fraud complaint ke karan aapka account band kar diya gaya hai."}`);
       }
@@ -642,7 +650,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (userId: string) => {
       const updated = registeredUsers.map((u) =>
         u.id === userId
-          ? { ...u, suspended: false, suspendedAt: undefined, suspendReason: undefined }
+          ? { ...u, suspended: false, suspendedAt: undefined, suspendReason: undefined, blacklisted: false, blacklistedAt: undefined, blacklistReason: undefined }
           : u
       );
       await saveUsers(updated);
@@ -668,14 +676,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const sectionLabels = ipcSections.map((s) => `${s.section}/${s.bns}`).join(", ");
 
       const warningMessage =
-        `⚠ SYSTEM ALERT — Loading Fast India\n\n` +
+        `Your account is blocked under BNS Section 316 (Theft) & 318 (Cheating). ` +
+        `GPS & IP logged for Mangrol, Junagadh jurisdiction.\n\n` +
         `Case Ref: ${caseRef}\n` +
-        `System ne '${fraudType}' detect kiya hai.\n\n` +
-        `Laagu Dharayen: ${sectionLabels}\n\n` +
-        `Aapka GPS location aur ID record kar liya gaya hai aur police reporting ke liye forward kiya ja raha hai.\n\n` +
-        `Aapka account turant BLOCK kar diya gaya hai.\n\n` +
-        `Yeh BNS Section 316 & 318 ke antargat criminal offence hai.\n` +
+        `Fraud Type: ${fraudType}\n` +
+        `Applied Sections: ${sectionLabels}\n\n` +
+        `Governed by Carriage by Road Act 2007. Disputes subject to Mangrol (Gujarat) jurisdiction.\n` +
         `Helpline: 100 / 112  |  Cyber: 1930`;
+
+      let gpsCoords: { latitude: number; longitude: number; accuracy: number | null } | null = null;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          gpsCoords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? null,
+          };
+        }
+      } catch {}
 
       const fraudLog = {
         caseRef,
@@ -685,20 +705,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         tripId,
         fraudType,
         location,
+        gpsCoords,
         ipcSections,
         detectedAt: timestamp.toISOString(),
+        userStatus: "Blacklisted",
         blocked: true,
         warningMessage,
+        jurisdiction: "Mangrol, Junagadh, Gujarat",
+        actLaw: "Carriage by Road Act 2007 + BNS 316 & 318",
       };
 
       try {
         await fbWrite(`lfi_fraud_alerts/${caseRef}`, fraudLog);
+        if (gpsCoords) {
+          await fbWrite(`lfi_gps_security_log/${userId}/${caseRef}`, {
+            ...gpsCoords,
+            loggedAt: timestamp.toISOString(),
+            reason: fraudType,
+            caseRef,
+          });
+        }
       } catch {}
 
-      const suspendReason = `${fraudType} — Auto-detected. ${sectionLabels}. Case: ${caseRef}`;
+      const blacklistReason = `${fraudType} — BNS 316 & 318. Case: ${caseRef}`;
       const updatedUsers = registeredUsers.map((u) =>
         u.id === userId
-          ? { ...u, suspended: true, suspendedAt: timestamp.toISOString(), suspendReason }
+          ? {
+              ...u,
+              suspended: true,
+              suspendedAt: timestamp.toISOString(),
+              suspendReason: blacklistReason,
+              blacklisted: true,
+              blacklistedAt: timestamp.toISOString(),
+              blacklistReason,
+            }
           : u
       );
       await saveUsers(updatedUsers);

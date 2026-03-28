@@ -601,11 +601,11 @@ export default function TripDetailScreen() {
             <Text style={styles.biltyLegalTitle}>Digital Bilty / LR Legal Notice</Text>
           </View>
           <Text style={styles.biltyLegalEn}>
-            🇬🇧 This shipment is governed by The Carriage by Road Act, 2007. Any theft or criminal breach of trust will be prosecuted under BNS Section 316. All disputes are subject to Mangrol, Junagadh jurisdiction.
+            🇬🇧 Governed by Carriage by Road Act 2007. Any theft or criminal breach of trust will be prosecuted under BNS Section 316 (Theft) & 318 (Cheating). GPS & IP logged for security. Disputes subject to Mangrol (Gujarat) jurisdiction.
           </Text>
           <View style={styles.biltyLegalDivider} />
           <Text style={styles.biltyLegalHi}>
-            🇮🇳 यह शिपमेंट रोड कैरियर एक्ट, 2007 के अंतर्गत है। माल की चोरी या धोखाधड़ी करने पर BNS धारा 316 के तहत कार्रवाई की जाएगी। सभी कानूनी विवादों का कार्यक्षेत्र मांगरोल, जूनागढ़ होगा।
+            🇮🇳 यह शिपमेंट रोड कैरियर एक्ट, 2007 के अंतर्गत है। माल की चोरी या धोखाधड़ी पर BNS धारा 316 (चोरी) व 318 (धोखाधड़ी) के तहत कार्रवाई होगी। GPS व IP सुरक्षा हेतु लॉग किया जाता है। सभी विवाद मांगरोल (गुजरात) अधिकार क्षेत्र में होंगे।
           </Text>
           <View style={styles.biltyLegalFooter}>
             <Text style={styles.biltyLegalRef}>Bilty: {trip.biltyNumber}</Text>

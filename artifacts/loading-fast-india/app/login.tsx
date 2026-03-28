@@ -88,6 +88,7 @@ export default function LoginScreen() {
   }>({});
 
   const [suspendedMsg, setSuspendedMsg] = useState("");
+  const [blacklistedMsg, setBlacklistedMsg] = useState("");
 
   const formatAadhaar = (raw: string) => {
     const digits = raw.replace(/[^0-9]/g, "").slice(0, 12);
@@ -137,6 +138,7 @@ export default function LoginScreen() {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSuspendedMsg("");
+    setBlacklistedMsg("");
     try {
       const extras =
         selectedRole === "merchant"
@@ -150,7 +152,10 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       const msg: string = err?.message ?? "";
-      if (msg.startsWith("SUSPENDED:")) {
+      if (msg.startsWith("BLACKLISTED:")) {
+        setBlacklistedMsg(msg.replace("BLACKLISTED:", "").trim());
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else if (msg.startsWith("SUSPENDED:")) {
         setSuspendedMsg(msg.replace("SUSPENDED:", "").trim());
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -193,7 +198,26 @@ export default function LoginScreen() {
             <Text style={styles.tagline}>India ka sabse tez logistics platform</Text>
           </View>
 
-          {suspendedMsg ? (
+          {blacklistedMsg ? (
+            <View style={[styles.suspendedBanner, { borderColor: "#7f1d1d", backgroundColor: "#1a0000" }]}>
+              <MaterialCommunityIcons name="skull-crossbones" size={32} color="#ef4444" />
+              <Text style={[styles.suspendedTitle, { color: "#ef4444", fontSize: 16 }]}>
+                ⛔ BLACKLISTED — Account BLOCK Ho Gaya!
+              </Text>
+              <Text style={[styles.suspendedMsg, { color: "#fca5a5", lineHeight: 18 }]}>
+                {blacklistedMsg}
+              </Text>
+              <View style={{ backgroundColor: "#7f1d1d33", borderRadius: 8, padding: 8, marginTop: 6, borderWidth: 1, borderColor: "#7f1d1d" }}>
+                <Text style={{ fontSize: 11, color: "#fca5a5", textAlign: "center", fontWeight: "600" }}>
+                  BNS 316 (Theft) & 318 (Cheating){"\n"}
+                  Mangrol, Junagadh Jurisdiction
+                </Text>
+              </View>
+              <Text style={[styles.suspendedContact, { color: "#9ca3af" }]}>
+                Cyber Helpline: 1930  |  Police: 100 / 112
+              </Text>
+            </View>
+          ) : suspendedMsg ? (
             <View style={styles.suspendedBanner}>
               <MaterialCommunityIcons name="account-cancel" size={28} color={Colors.error} />
               <Text style={styles.suspendedTitle}>Account Suspend Hai!</Text>
