@@ -20,9 +20,10 @@ import { FraudCase, User, useApp } from "@/context/AppContext";
 type FilterTab = "all" | "merchant" | "driver";
 
 const WA_TEMPLATES = [
-  { key: "hello_world", label: "Hello World (Test)" },
-  { key: "new_load_alert", label: "New Load Alert" },
-  { key: "driver_approval", label: "Driver Approval" },
+  { key: "hello_world",      label: "Hello World (Test)",           hints: [] },
+  { key: "new_load_alert",   label: "New Load Alert (Driver ko)",   hints: ["Driver Name", "From City", "To City", "Weight (tons)", "Freight (₹)"] },
+  { key: "booking_confirmed",label: "Booking Confirmed (Merchant)", hints: ["Merchant Name", "Bilty Number", "Driver Name", "From City", "To City"] },
+  { key: "driver_approval",  label: "Driver Approval",              hints: ["Driver Name"] },
 ];
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api-server/api`;
@@ -137,12 +138,35 @@ export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [waPhone, setWaPhone] = useState("");
   const [waTemplate, setWaTemplate] = useState("hello_world");
+  const [waVariables, setWaVariables] = useState<string[]>([]);
   const [waSending, setWaSending] = useState(false);
   const [waResult, setWaResult] = useState<{ success: boolean; msg: string } | null>(null);
+
+  const selectedTpl = WA_TEMPLATES.find((t) => t.key === waTemplate) ?? WA_TEMPLATES[0];
+
+  const handleTemplateChange = (key: string) => {
+    setWaTemplate(key);
+    const tpl = WA_TEMPLATES.find((t) => t.key === key);
+    setWaVariables(tpl ? tpl.hints.map(() => "") : []);
+    setWaResult(null);
+  };
+
+  const setVariable = (index: number, value: string) => {
+    setWaVariables((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
 
   const sendWhatsApp = async () => {
     if (!waPhone.trim() || waPhone.trim().length < 10) {
       setWaResult({ success: false, msg: "Valid 10-digit phone number daalen" });
+      return;
+    }
+    const emptyVar = selectedTpl.hints.findIndex((_, i) => !waVariables[i]?.trim());
+    if (emptyVar !== -1) {
+      setWaResult({ success: false, msg: `"${selectedTpl.hints[emptyVar]}" field khaali hai` });
       return;
     }
     setWaSending(true);
@@ -151,12 +175,17 @@ export default function AdminScreen() {
       const res = await fetch(`${API_BASE}/whatsapp/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: waPhone.trim(), template: waTemplate }),
+        body: JSON.stringify({
+          phone: waPhone.trim(),
+          template: waTemplate,
+          variables: waVariables.filter((v) => v.trim()),
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setWaResult({ success: true, msg: `Message bhej diya! ID: ${data.messageId}` });
         setWaPhone("");
+        setWaVariables(selectedTpl.hints.map(() => ""));
       } else {
         setWaResult({ success: false, msg: data.error ?? "Kuch gadbad hui" });
       }
@@ -514,7 +543,7 @@ export default function AdminScreen() {
                   styles.waTemplateBtn,
                   waTemplate === t.key && styles.waTemplateBtnActive,
                 ]}
-                onPress={() => setWaTemplate(t.key)}
+                onPress={() => handleTemplateChange(t.key)}
               >
                 <Text
                   style={[
@@ -527,6 +556,29 @@ export default function AdminScreen() {
               </Pressable>
             ))}
           </View>
+
+          {selectedTpl.hints.length > 0 && (
+            <View style={styles.waVariablesBox}>
+              <View style={styles.waVariablesHeader}>
+                <MaterialCommunityIcons name="variable" size={14} color={Colors.textMuted} />
+                <Text style={styles.waVariablesTitle}>Template Variables</Text>
+              </View>
+              {selectedTpl.hints.map((hint, i) => (
+                <View key={i} style={styles.waVarRow}>
+                  <Text style={styles.waVarLabel}>
+                    {`{{${i + 1}}}`} {hint}
+                  </Text>
+                  <TextInput
+                    style={styles.waVarInput}
+                    placeholder={`${hint} daalen...`}
+                    placeholderTextColor={Colors.textMuted}
+                    value={waVariables[i] ?? ""}
+                    onChangeText={(v) => setVariable(i, v)}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
           {waResult && (
             <View
@@ -1067,5 +1119,45 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+  waVariablesBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    gap: 10,
+  },
+  waVariablesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  waVariablesTitle: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  waVarRow: {
+    gap: 4,
+  },
+  waVarLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textSecondary,
+  },
+  waVarInput: {
+    backgroundColor: Colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: Colors.text,
   },
 });
