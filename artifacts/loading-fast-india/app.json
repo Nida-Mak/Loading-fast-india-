@@ -8,15 +8,32 @@
     "scheme": "loading-fast-india",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "owner": "loadingfastindia",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 3000,
+      "url": "https://u.expo.dev/EXPO_PROJECT_ID_PLACEHOLDER"
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0F"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.loadingfastindia.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.loadingfastindia.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0A0A0F"
+      }
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,11 +45,17 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "EXPO_PROJECT_ID_PLACEHOLDER"
+      }
     }
   }
 }
