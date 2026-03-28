@@ -3,10 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Platform } from "react-native";
 import { ref, set, onValue, type Unsubscribe } from "firebase/database";
 import { getFirebaseDB, isFirebaseConfigured } from "@/lib/firebase";
-
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api-server/api`
-  : "http://localhost:8080/api";
+import { API_BASE } from "@/lib/api";
 
 interface TrackingState {
   isTracking: boolean;

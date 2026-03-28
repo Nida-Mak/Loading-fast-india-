@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { FraudCase, User, useApp } from "@/context/AppContext";
+import { API_BASE, type WhatsAppSendResponse } from "@/lib/api";
 
 type FilterTab = "all" | "merchant" | "driver";
 
@@ -25,8 +26,6 @@ const WA_TEMPLATES = [
   { key: "booking_confirmed",label: "Booking Confirmed (Merchant)", hints: ["Merchant Name", "Bilty Number", "Driver Name", "From City", "To City"] },
   { key: "driver_approval",  label: "Driver Approval",              hints: ["Driver Name"] },
 ];
-
-const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api-server/api`;
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—";
@@ -181,7 +180,7 @@ export default function AdminScreen() {
           variables: waVariables.filter((v) => v.trim()),
         }),
       });
-      const data = await res.json();
+      const data: WhatsAppSendResponse = await res.json();
       if (data.success) {
         setWaResult({ success: true, msg: `Message bhej diya! ID: ${data.messageId}` });
         setWaPhone("");

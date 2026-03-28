@@ -208,7 +208,7 @@ export default function ProfileScreen() {
               {user?.isVerified && (
                 <View style={styles.verifiedBadge}>
                   <MaterialCommunityIcons name="check-decagram" size={13} color="#fff" />
-                  <Text style={styles.verifiedText}>Verified</Text>
+                  <Text style={styles.verifiedBadgeText}>Verified</Text>
                 </View>
               )}
             </View>
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-  verifiedText: {
+  verifiedBadgeText: {
     fontSize: 11,
     fontFamily: "Inter_700Bold",
     color: "#fff",

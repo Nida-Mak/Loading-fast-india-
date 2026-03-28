@@ -21,7 +21,7 @@ const APP_NAME = "Loading Fast India (LFI)";
 
 export default function QRShareScreen() {
   const insets = useSafeAreaInsets();
-  const svgRef = useRef(null);
+  const svgRef = useRef<any>(null);
 
   const handleShare = async () => {
     try {
@@ -81,7 +81,7 @@ export default function QRShareScreen() {
               logoBorderRadius={10}
               quietZone={10}
               ecl="H"
-              getRef={svgRef}
+              getRef={(ref) => { svgRef.current = ref; }}
             />
           </View>
 
