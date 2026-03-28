@@ -11,7 +11,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
@@ -269,14 +268,13 @@ export default function BookTripScreen() {
 
   return (
     <View style={styles.container}>
-      <KeyboardAwareScrollView
+      <ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 40 },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        bottomOffset={20}
       >
         {/* STEP 1 — ROUTE */}
         <View style={styles.stepHeader}>
@@ -562,7 +560,7 @@ export default function BookTripScreen() {
             </>
           )}
         </Pressable>
-      </KeyboardAwareScrollView>
+      </ScrollView>
     </View>
   );
 }

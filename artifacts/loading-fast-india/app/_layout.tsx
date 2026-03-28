@@ -11,7 +11,6 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 
@@ -185,13 +184,11 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <View style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                  <OfflineBanner />
-                  <OtaUpdateBanner />
-                </View>
-              </KeyboardProvider>
+              <View style={{ flex: 1 }}>
+                <RootLayoutNav />
+                <OfflineBanner />
+                <OtaUpdateBanner />
+              </View>
             </GestureHandlerRootView>
           </AppProvider>
         </QueryClientProvider>
