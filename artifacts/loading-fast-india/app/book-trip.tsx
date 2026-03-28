@@ -16,16 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
 
-const CITIES = [
-  "Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata",
-  "Hyderabad", "Pune", "Ahmedabad", "Jaipur", "Surat",
-  "Lucknow", "Kanpur", "Nagpur", "Visakhapatnam", "Indore",
-  "Thane", "Bhopal", "Patna", "Vadodara", "Ludhiana",
-  "Rajkot", "Amritsar", "Faridabad", "Meerut", "Nashik",
-  "Aurangabad", "Jodhpur", "Coimbatore", "Ranchi", "Guwahati",
-  "Chandigarh", "Mysore", "Tiruchirappalli", "Bareilly", "Gwalior",
-  "Aligarh", "Jalandhar", "Moradabad", "Noida", "Ghaziabad",
-];
 
 const GOODS_TYPES = [
   // Anaaj & Fasal — Grain & Crops
@@ -127,7 +117,7 @@ const VEHICLE_TYPES = [
   "ट्रेलर / Trailer (40 Ton)",
 ];
 
-type DropdownField = "fromCity" | "toCity" | "goodsType" | "vehicleType" | null;
+type DropdownField = "goodsType" | "vehicleType" | null;
 
 export default function BookTripScreen() {
   const insets = useSafeAreaInsets();
@@ -291,49 +281,33 @@ export default function BookTripScreen() {
             <View style={styles.dotDest} />
           </View>
           <View style={styles.routeFields}>
-            <Pressable
-              style={styles.citySelector}
-              onPress={() => {
-                setOpenDropdown(openDropdown === "fromCity" ? null : "fromCity");
-                setErrorMsg("");
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.routeFieldLabel}>📍 Kahan Se (From City)</Text>
-                <Text style={[styles.routeFieldValue, !fromCity && styles.placeholder]}>
-                  {fromCity || "Sheher chunein..."}
-                </Text>
-              </View>
-              <Ionicons
-                name={openDropdown === "fromCity" ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={Colors.primary}
+            <View style={styles.cityInputRow}>
+              <Text style={styles.routeFieldLabel}>📍 Kahan Se (From City)</Text>
+              <TextInput
+                style={styles.cityTextInput}
+                placeholder="Sheher ya jagah likhein..."
+                placeholderTextColor={Colors.textMuted}
+                value={fromCity}
+                onChangeText={(v) => { setFromCity(v); setErrorMsg(""); }}
+                autoCapitalize="words"
+                returnKeyType="next"
               />
-            </Pressable>
-            {renderDropdown("fromCity", CITIES, fromCity, setFromCity)}
+            </View>
 
             <View style={styles.routeDivider} />
 
-            <Pressable
-              style={styles.citySelector}
-              onPress={() => {
-                setOpenDropdown(openDropdown === "toCity" ? null : "toCity");
-                setErrorMsg("");
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.routeFieldLabel}>🏁 Kahan Tak (To City)</Text>
-                <Text style={[styles.routeFieldValue, !toCity && styles.placeholder]}>
-                  {toCity || "Sheher chunein..."}
-                </Text>
-              </View>
-              <Ionicons
-                name={openDropdown === "toCity" ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={Colors.success}
+            <View style={styles.cityInputRow}>
+              <Text style={styles.routeFieldLabel}>🏁 Kahan Tak (To City)</Text>
+              <TextInput
+                style={styles.cityTextInput}
+                placeholder="Sheher ya jagah likhein..."
+                placeholderTextColor={Colors.textMuted}
+                value={toCity}
+                onChangeText={(v) => { setToCity(v); setErrorMsg(""); }}
+                autoCapitalize="words"
+                returnKeyType="done"
               />
-            </Pressable>
-            {renderDropdown("toCity", CITIES, toCity, setToCity)}
+            </View>
           </View>
         </View>
 
@@ -672,12 +646,18 @@ const styles = StyleSheet.create({
   routeFields: {
     flex: 1,
   },
-  citySelector: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  cityInputRow: {
     padding: 16,
-    gap: 8,
+    paddingBottom: 12,
+  },
+  cityTextInput: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   routeFieldLabel: {
     fontSize: 11,

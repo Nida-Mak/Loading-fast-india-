@@ -22,21 +22,6 @@ import { ADMIN_PIN, useApp, UserRole } from "@/context/AppContext";
 
 const { width } = Dimensions.get("window");
 
-const CITIES = [
-  "Mumbai",
-  "Delhi",
-  "Bangalore",
-  "Chennai",
-  "Kolkata",
-  "Hyderabad",
-  "Pune",
-  "Ahmedabad",
-  "Jaipur",
-  "Surat",
-  "Lucknow",
-  "Kanpur",
-];
-
 const ROLES: { key: UserRole; label: string; icon: string; desc: string }[] = [
   {
     key: "merchant",
@@ -65,8 +50,7 @@ export default function LoginScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("merchant");
-  const [selectedCity, setSelectedCity] = useState("Mumbai");
-  const [showCities, setShowCities] = useState(false);
+  const [selectedCity, setSelectedCity] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Merchant-specific fields
@@ -81,6 +65,7 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<{
     name?: string;
     phone?: string;
+    city?: string;
     businessName?: string;
     aadhaar?: string;
     gst?: string;
@@ -105,6 +90,9 @@ export default function LoginScreen() {
     }
     if (!phone.trim() || phone.trim().length < 10) {
       errs.phone = "Enter valid 10-digit phone number";
+    }
+    if (!selectedCity.trim()) {
+      errs.city = "Apna sheher / location zaroor likhein";
     }
     if (selectedRole === "merchant") {
       if (!businessName.trim()) {
@@ -306,62 +294,21 @@ export default function LoginScreen() {
               <Text style={styles.errorText}>{errors.phone}</Text>
             ) : null}
 
-            <Pressable
-              style={styles.inputGroup}
-              onPress={() => {
-                setShowCities((v) => !v);
-                Haptics.selectionAsync();
-              }}
-            >
-              <Ionicons name="location-outline" size={18} color={Colors.textMuted} />
-              <Text style={[styles.input, { paddingTop: 0 }]}>{selectedCity}</Text>
-              <Ionicons
-                name={showCities ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={Colors.textMuted}
+            <View style={[styles.inputGroup, errors.city ? { borderColor: Colors.error } : {}]}>
+              <Ionicons name="location-outline" size={18} color={errors.city ? Colors.error : Colors.textMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="Aapka sheher / location likhein"
+                placeholderTextColor={Colors.textMuted}
+                value={selectedCity}
+                onChangeText={(v) => { setSelectedCity(v); setErrors((e) => ({ ...e, city: undefined })); }}
+                returnKeyType="done"
+                autoCapitalize="words"
               />
-            </Pressable>
-
-            {showCities && (
-              <View style={styles.cityDropdown}>
-                <ScrollView
-                  style={{ maxHeight: 200 }}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                >
-                  {CITIES.map((city) => (
-                    <Pressable
-                      key={city}
-                      style={[
-                        styles.cityOption,
-                        selectedCity === city && styles.cityOptionActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedCity(city);
-                        setShowCities(false);
-                        Haptics.selectionAsync();
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.cityOptionText,
-                          selectedCity === city && styles.cityOptionTextActive,
-                        ]}
-                      >
-                        {city}
-                      </Text>
-                      {selectedCity === city && (
-                        <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color={Colors.primary}
-                        />
-                      )}
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+            </View>
+            {errors.city ? (
+              <Text style={styles.errorText}>{errors.city}</Text>
+            ) : null}
 
             {selectedRole === "merchant" && (
               <>
@@ -753,35 +700,6 @@ const styles = StyleSheet.create({
     color: Colors.error,
     marginTop: -6,
     marginLeft: 4,
-  },
-  cityDropdown: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginTop: -4,
-    overflow: "hidden",
-  },
-  cityOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  cityOptionActive: {
-    backgroundColor: "#1A0A00",
-  },
-  cityOptionText: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    color: Colors.textSecondary,
-  },
-  cityOptionTextActive: {
-    color: Colors.primary,
-    fontFamily: "Inter_500Medium",
   },
   loginBtn: {
     marginTop: 16,
