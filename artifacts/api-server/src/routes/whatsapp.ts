@@ -1,11 +1,15 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import axios from "axios";
+import crypto from "crypto";
 
 const router: IRouter = Router();
 
 const PHONE_NUMBER_ID = process.env["PHONE_NUMBER_ID"] ?? "1051895501342348";
 const WHATSAPP_ACCESS_TOKEN = process.env["WHATSAPP_ACCESS_TOKEN"] ?? "";
 const GRAPH_API_URL = `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`;
+
+const ADMIN_USER = process.env["ADMIN_USER"] ?? "";
+const ADMIN_PASS = process.env["ADMIN_PASS"] ?? "";
 
 export interface TemplateInfo {
   name: string;
@@ -41,12 +45,30 @@ export const TEMPLATES: Record<string, TemplateInfo> = {
   },
 };
 
-/**
- * Reusable function: sendAppNotification
- * @param number   - Phone number (10-digit or with 91 country code)
- * @param templateName - Key from TEMPLATES map
- * @param variables    - Array of string values for template body parameters
- */
+function generateToken(user: string, pass: string): string {
+  return crypto
+    .createHmac("sha256", PHONE_NUMBER_ID)
+    .update(`${user}:${pass}`)
+    .digest("hex");
+}
+
+function verifyAdminToken(token: string): boolean {
+  if (!ADMIN_USER || !ADMIN_PASS) return false;
+  const expected = generateToken(ADMIN_USER, ADMIN_PASS);
+  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+}
+
+function adminAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers["x-admin-token"];
+  const token = Array.isArray(authHeader) ? authHeader[0] : authHeader ?? "";
+
+  if (!token || !verifyAdminToken(token)) {
+    res.status(401).json({ success: false, error: "Unauthorized — Admin login required" });
+    return;
+  }
+  next();
+}
+
 export async function sendAppNotification(
   number: string,
   templateName: string,
@@ -100,7 +122,27 @@ export async function sendAppNotification(
   }
 }
 
-router.post("/whatsapp/send", async (req, res) => {
+router.post("/admin/verify", (req, res) => {
+  const { user, pass } = req.body as { user?: string; pass?: string };
+
+  if (!ADMIN_USER || !ADMIN_PASS) {
+    res.status(500).json({ success: false, error: "Admin credentials not configured" });
+    return;
+  }
+
+  const userMatch = user?.trim() === ADMIN_USER;
+  const passMatch = pass?.trim() === ADMIN_PASS;
+
+  if (!userMatch || !passMatch) {
+    res.status(401).json({ success: false, error: "Galat username ya password" });
+    return;
+  }
+
+  const token = generateToken(ADMIN_USER, ADMIN_PASS);
+  res.json({ success: true, token });
+});
+
+router.post("/whatsapp/send", adminAuthMiddleware, async (req, res) => {
   const { phone, template, variables } = req.body as {
     phone?: string;
     template?: string;

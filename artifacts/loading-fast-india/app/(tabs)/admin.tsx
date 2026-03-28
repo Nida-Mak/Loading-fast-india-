@@ -135,6 +135,12 @@ export default function AdminScreen() {
   const { user, trips, registeredUsers, fraudCases, removeUser, reinstateUser } = useApp();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [waUnlocked, setWaUnlocked] = useState(false);
+  const [waToken, setWaToken] = useState("");
+  const [waLoginUser, setWaLoginUser] = useState("");
+  const [waLoginPass, setWaLoginPass] = useState("");
+  const [waLoginError, setWaLoginError] = useState("");
+  const [waLoginLoading, setWaLoginLoading] = useState(false);
   const [waPhone, setWaPhone] = useState("");
   const [waTemplate, setWaTemplate] = useState("hello_world");
   const [waVariables, setWaVariables] = useState<string[]>([]);
@@ -142,6 +148,35 @@ export default function AdminScreen() {
   const [waResult, setWaResult] = useState<{ success: boolean; msg: string } | null>(null);
 
   const selectedTpl = WA_TEMPLATES.find((t) => t.key === waTemplate) ?? WA_TEMPLATES[0];
+
+  const verifyAdminLogin = async () => {
+    if (!waLoginUser.trim() || !waLoginPass.trim()) {
+      setWaLoginError("Username aur password dono daalen");
+      return;
+    }
+    setWaLoginLoading(true);
+    setWaLoginError("");
+    try {
+      const res = await fetch(`${API_BASE}/admin/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: waLoginUser.trim(), pass: waLoginPass.trim() }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        setWaToken(data.token);
+        setWaUnlocked(true);
+        setWaLoginUser("");
+        setWaLoginPass("");
+      } else {
+        setWaLoginError(data.error ?? "Login failed");
+      }
+    } catch {
+      setWaLoginError("Server se connection nahi ho paya");
+    } finally {
+      setWaLoginLoading(false);
+    }
+  };
 
   const handleTemplateChange = (key: string) => {
     setWaTemplate(key);
@@ -173,7 +208,10 @@ export default function AdminScreen() {
     try {
       const res = await fetch(`${API_BASE}/whatsapp/send`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": waToken,
+        },
         body: JSON.stringify({
           phone: waPhone.trim(),
           template: waTemplate,
@@ -519,8 +557,70 @@ export default function AdminScreen() {
           <View style={styles.waSectionHeader}>
             <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
             <Text style={styles.waSectionTitle}>WhatsApp Support</Text>
+            {waUnlocked ? (
+              <Pressable
+                style={styles.waLockBtn}
+                onPress={() => { setWaUnlocked(false); setWaToken(""); setWaResult(null); }}
+              >
+                <MaterialCommunityIcons name="lock-open-outline" size={15} color={Colors.success} />
+                <Text style={[styles.waLockBtnText, { color: Colors.success }]}>Unlocked</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.waLockBtn}>
+                <MaterialCommunityIcons name="lock-outline" size={15} color={Colors.error} />
+                <Text style={[styles.waLockBtnText, { color: Colors.error }]}>Locked</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.waSectionSub}>Driver / Merchant ko directly message bhejein</Text>
+
+          {!waUnlocked ? (
+            <View style={styles.waLoginBox}>
+              <MaterialCommunityIcons name="shield-key-outline" size={32} color={Colors.textMuted} style={{ alignSelf: "center" }} />
+              <Text style={styles.waLoginTitle}>Admin Verification Zaroori Hai</Text>
+              <Text style={styles.waLoginSub}>WhatsApp tool use karne ke liye apna Admin username aur password daalen</Text>
+
+              <TextInput
+                style={styles.waInput}
+                placeholder="Admin Username"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                value={waLoginUser}
+                onChangeText={(v) => { setWaLoginUser(v); setWaLoginError(""); }}
+              />
+              <TextInput
+                style={styles.waInput}
+                placeholder="Admin Password"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry
+                value={waLoginPass}
+                onChangeText={(v) => { setWaLoginPass(v); setWaLoginError(""); }}
+              />
+
+              {waLoginError ? (
+                <View style={styles.waLoginErrorBox}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={14} color={Colors.error} />
+                  <Text style={styles.waLoginErrorText}>{waLoginError}</Text>
+                </View>
+              ) : null}
+
+              <Pressable
+                style={[styles.waSendBtn, { backgroundColor: Colors.primary }, waLoginLoading && { opacity: 0.6 }]}
+                onPress={verifyAdminLogin}
+                disabled={waLoginLoading}
+              >
+                {waLoginLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name="shield-check" size={16} color="#fff" />
+                )}
+                <Text style={styles.waSendBtnText}>
+                  {waLoginLoading ? "Verify ho raha hai..." : "Verify Karein"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
 
           <Text style={styles.waLabel}>Phone Number</Text>
           <TextInput
@@ -616,6 +716,8 @@ export default function AdminScreen() {
               {waSending ? "Bhej raha hai..." : "WhatsApp Bhejein"}
             </Text>
           </Pressable>
+            </>
+          )}
         </View>
 
       </ScrollView>
@@ -1118,6 +1220,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+  waLockBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  waLockBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  waLoginBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    gap: 12,
+    marginTop: 4,
+  },
+  waLoginTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+    textAlign: "center",
+  },
+  waLoginSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 17,
+  },
+  waLoginErrorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.error + "15",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.error + "40",
+  },
+  waLoginErrorText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.error,
+    flex: 1,
   },
   waVariablesBox: {
     backgroundColor: Colors.surface,
