@@ -3,11 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +18,14 @@ import Colors from "@/constants/colors";
 import { FraudCase, User, useApp } from "@/context/AppContext";
 
 type FilterTab = "all" | "merchant" | "driver";
+
+const WA_TEMPLATES = [
+  { key: "hello_world", label: "Hello World (Test)" },
+  { key: "new_load_alert", label: "New Load Alert" },
+  { key: "driver_approval", label: "Driver Approval" },
+];
+
+const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api-server/api`;
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—";
@@ -125,6 +135,37 @@ export default function AdminScreen() {
   const { user, trips, registeredUsers, fraudCases, removeUser, reinstateUser } = useApp();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [waPhone, setWaPhone] = useState("");
+  const [waTemplate, setWaTemplate] = useState("hello_world");
+  const [waSending, setWaSending] = useState(false);
+  const [waResult, setWaResult] = useState<{ success: boolean; msg: string } | null>(null);
+
+  const sendWhatsApp = async () => {
+    if (!waPhone.trim() || waPhone.trim().length < 10) {
+      setWaResult({ success: false, msg: "Valid 10-digit phone number daalen" });
+      return;
+    }
+    setWaSending(true);
+    setWaResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: waPhone.trim(), template: waTemplate }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWaResult({ success: true, msg: `Message bhej diya! ID: ${data.messageId}` });
+        setWaPhone("");
+      } else {
+        setWaResult({ success: false, msg: data.error ?? "Kuch gadbad hui" });
+      }
+    } catch {
+      setWaResult({ success: false, msg: "Server se connection nahi ho paya" });
+    } finally {
+      setWaSending(false);
+    }
+  };
 
   if (!user || user.role !== "admin") {
     return (
@@ -401,7 +442,7 @@ export default function AdminScreen() {
               </View>
             )}
 
-            {fraudCases.slice(0, 15).map((fc) => (
+            {fraudCases.slice(0, 15).map((fc: FraudCase) => (
               <Pressable
                 key={fc.id}
                 style={styles.fraudCard}
@@ -444,6 +485,88 @@ export default function AdminScreen() {
             ))}
           </View>
         )}
+
+        {/* ===== WHATSAPP SUPPORT SECTION ===== */}
+        <View style={styles.waSection}>
+          <View style={styles.waSectionHeader}>
+            <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
+            <Text style={styles.waSectionTitle}>WhatsApp Support</Text>
+          </View>
+          <Text style={styles.waSectionSub}>Driver / Merchant ko directly message bhejein</Text>
+
+          <Text style={styles.waLabel}>Phone Number</Text>
+          <TextInput
+            style={styles.waInput}
+            placeholder="10-digit number (e.g. 9876543210)"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={10}
+            value={waPhone}
+            onChangeText={setWaPhone}
+          />
+
+          <Text style={styles.waLabel}>Template Chunein</Text>
+          <View style={styles.waTemplateRow}>
+            {WA_TEMPLATES.map((t) => (
+              <Pressable
+                key={t.key}
+                style={[
+                  styles.waTemplateBtn,
+                  waTemplate === t.key && styles.waTemplateBtnActive,
+                ]}
+                onPress={() => setWaTemplate(t.key)}
+              >
+                <Text
+                  style={[
+                    styles.waTemplateBtnText,
+                    waTemplate === t.key && styles.waTemplateBtnTextActive,
+                  ]}
+                >
+                  {t.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {waResult && (
+            <View
+              style={[
+                styles.waResultBox,
+                { borderColor: waResult.success ? Colors.success : Colors.error },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={waResult.success ? "check-circle-outline" : "alert-circle-outline"}
+                size={15}
+                color={waResult.success ? Colors.success : Colors.error}
+              />
+              <Text
+                style={[
+                  styles.waResultText,
+                  { color: waResult.success ? Colors.success : Colors.error },
+                ]}
+              >
+                {waResult.msg}
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            style={[styles.waSendBtn, waSending && { opacity: 0.6 }]}
+            onPress={sendWhatsApp}
+            disabled={waSending}
+          >
+            {waSending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialCommunityIcons name="send" size={16} color="#fff" />
+            )}
+            <Text style={styles.waSendBtnText}>
+              {waSending ? "Bhej raha hai..." : "WhatsApp Bhejein"}
+            </Text>
+          </Pressable>
+        </View>
+
       </ScrollView>
     </View>
   );
@@ -844,5 +967,105 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
+  },
+  waSection: {
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#25D36633",
+    gap: 10,
+  },
+  waSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  waSectionTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+  },
+  waSectionSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: -6,
+  },
+  waLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textSecondary,
+    marginBottom: -4,
+  },
+  waInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: Colors.text,
+  },
+  waTemplateRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  waTemplateBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: Colors.surface,
+  },
+  waTemplateBtnActive: {
+    borderColor: "#25D366",
+    backgroundColor: "#25D36622",
+  },
+  waTemplateBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.textSecondary,
+  },
+  waTemplateBtnTextActive: {
+    color: "#25D366",
+    fontFamily: "Inter_600SemiBold",
+  },
+  waResultBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: Colors.surface,
+  },
+  waResultText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  waSendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#25D366",
+    borderRadius: 10,
+    paddingVertical: 13,
+    marginTop: 4,
+  },
+  waSendBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
 });
