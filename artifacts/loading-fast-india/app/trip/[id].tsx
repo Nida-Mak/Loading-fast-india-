@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { useApp, TripStatus } from "@/context/AppContext";
+import { useApp, TripStatus, getVehicleNotificationConfig } from "@/context/AppContext";
 import LiveMap from "@/components/LiveMap";
 import { useDriverLocationTracking, useMerchantLocationWatch } from "@/hooks/useLocationTracking";
 
@@ -539,6 +539,30 @@ export default function TripDetailScreen() {
             value={`${trip.weightKg} kg`}
           />
           <InfoRow icon="truck" label="Gaadi" value={trip.vehicleType} />
+          {(() => {
+            const vc = getVehicleNotificationConfig(trip.vehicleType);
+            const labelMap = { small: "Local (Sheher)", medium: "Inter-city", heavy: "Long Distance" };
+            const colorMap = { small: "#22c55e", medium: "#f59e0b", heavy: "#ef4444" };
+            const iconMap = { small: "bike" as const, medium: "truck-outline" as const, heavy: "truck-fast" as const };
+            return (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 4, flexWrap: "wrap" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colorMap[vc.category] + "22", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: colorMap[vc.category] + "55" }}>
+                  <MaterialCommunityIcons name={iconMap[vc.category]} size={12} color={colorMap[vc.category]} />
+                  <Text style={{ fontSize: 11, color: colorMap[vc.category], fontWeight: "600" }}>{labelMap[vc.category]}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#3b82f622", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#3b82f655" }}>
+                  <MaterialCommunityIcons name="radar" size={12} color="#3b82f6" />
+                  <Text style={{ fontSize: 11, color: "#3b82f6", fontWeight: "600" }}>{vc.radiusKm} km radius</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#a855f722", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#a855f755" }}>
+                  <MaterialCommunityIcons name="bell-ring-outline" size={12} color="#a855f7" />
+                  <Text style={{ fontSize: 11, color: "#a855f7", fontWeight: "600" }}>
+                    {vc.notificationType === "instant" ? "Instant" : vc.notificationType === "multi_layered" ? "Multi-layer" : "Broadcast"}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
           {trip.description ? (
             <InfoRow
               icon="text-box-outline"

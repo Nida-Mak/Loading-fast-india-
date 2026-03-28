@@ -115,14 +115,17 @@ const GOODS_TYPES = [
 ];
 
 const VEHICLE_TYPES = [
-  "Bolero Pickup (0.75 Ton)",
-  "Tata Ace / Mini Truck (1.5 Ton)",
-  "Luggage Carrier (2 Ton)",
-  "Canter (3 Ton)",
-  "Fish Insulator / Reefer (5 Ton)",
-  "6 Wheeler Truck (10 Ton)",
-  "10 Wheeler Truck (20 Ton)",
-  "Trailer / Container (40 Ton)",
+  "छोटा हाथी / Chhota Haathi (0.5 Ton)",
+  "ईको वैन / Eco Van (0.75 Ton)",
+  "थ्री-व्हीलर Tempo (1 Ton)",
+  "Bike Delivery",
+  "Bolero Pickup / Tata 207 (1.5 Ton)",
+  "टाटा 407 / Tata 407 (2 Ton)",
+  "आयशर 14ft / Eicher Canter (3 Ton)",
+  "6 चक्का ट्रक / 6 Wheeler Truck (10 Ton)",
+  "10 चक्का ट्रक / 10 Wheeler Truck (20 Ton)",
+  "कंटेनर / Container (32 Ton)",
+  "ट्रेलर / Trailer (40 Ton)",
 ];
 
 type DropdownField = "fromCity" | "toCity" | "goodsType" | "vehicleType" | null;

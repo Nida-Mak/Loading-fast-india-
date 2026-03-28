@@ -71,6 +71,9 @@ export interface Trip {
   lfiCommission: number;
   driverEarning: number;
   vehicleType: string;
+  vehicleCategory?: VehicleCategory;
+  notificationRadiusKm?: number;
+  notificationType?: NotificationType;
   description?: string;
   commissionPaid?: boolean;
   driverRatedByMerchant?: boolean;
@@ -204,6 +207,68 @@ export const APP_CONFIG = {
   gst: "24BRLPS3959R1ZN",
 } as const;
 
+export type VehicleCategory = "small" | "medium" | "heavy";
+export type NotificationType = "instant" | "multi_layered" | "bulk_broadcast";
+
+export interface VehicleCategoryConfig {
+  types: string[];
+  radiusKm: number;
+  notificationType: NotificationType;
+  label: string;
+}
+
+export const VEHICLE_CONFIG: Record<VehicleCategory, VehicleCategoryConfig> = {
+  small: {
+    label: "Small Vehicles (Local)",
+    types: ["छोटा हाथी", "chhota haathi", "ईको", "eco", "थ्री-व्हीलर", "three-wheeler", "tempo", "bike", "delivery"],
+    radiusKm: 15,
+    notificationType: "instant",
+  },
+  medium: {
+    label: "Medium Vehicles (Inter-city)",
+    types: ["407", "pickup", "bolero", "आयशर", "eicher", "canter", "luggage", "mini truck", "tata ace"],
+    radiusKm: 50,
+    notificationType: "multi_layered",
+  },
+  heavy: {
+    label: "Heavy Vehicles (Long Distance)",
+    types: ["6 chak", "6 wheel", "10 chak", "10 wheel", "container", "trailer", "reefer", "insulator", "चक्का"],
+    radiusKm: 200,
+    notificationType: "bulk_broadcast",
+  },
+};
+
+export const VEHICLE_RADIUS_INCREMENT_KM = 25;
+export const VEHICLE_RENOTIFICATION_DELAY_MINUTES = 5;
+
+export function getVehicleCategory(vehicleType: string): VehicleCategory {
+  const lower = vehicleType.toLowerCase();
+  for (const [cat, cfg] of Object.entries(VEHICLE_CONFIG) as [VehicleCategory, VehicleCategoryConfig][]) {
+    if (cfg.types.some((kw) => lower.includes(kw.toLowerCase()))) {
+      return cat;
+    }
+  }
+  return "medium";
+}
+
+export function getVehicleNotificationConfig(vehicleType: string): {
+  category: VehicleCategory;
+  radiusKm: number;
+  notificationType: NotificationType;
+  radiusIncrementKm: number;
+  renotificationDelayMinutes: number;
+} {
+  const category = getVehicleCategory(vehicleType);
+  const cfg = VEHICLE_CONFIG[category];
+  return {
+    category,
+    radiusKm: cfg.radiusKm,
+    notificationType: cfg.notificationType,
+    radiusIncrementKm: VEHICLE_RADIUS_INCREMENT_KM,
+    renotificationDelayMinutes: VEHICLE_RENOTIFICATION_DELAY_MINUTES,
+  };
+}
+
 const COMMISSION_RATE = APP_CONFIG.commissionRate;
 
 export const ADMIN_PIN = "LFI2024";
@@ -242,7 +307,7 @@ const SAMPLE_TRIPS: Trip[] = [
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     lfiCommission: 900,
     driverEarning: 44100,
-    vehicleType: "10 Wheeler Truck (20 Ton)",
+    vehicleType: "10 चक्का ट्रक / 10 Wheeler Truck (20 Ton)",
     description: "Steel rods and construction material",
     commissionPaid: false,
   },
@@ -264,7 +329,7 @@ const SAMPLE_TRIPS: Trip[] = [
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
     lfiCommission: 240,
     driverEarning: 11760,
-    vehicleType: "Tata Ace / Mini Truck (1.5 Ton)",
+    vehicleType: "Bolero Pickup / Tata 207 (1.5 Ton)",
     description: "Mobile phones and laptops",
     commissionPaid: false,
   },
@@ -286,7 +351,7 @@ const SAMPLE_TRIPS: Trip[] = [
     createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
     lfiCommission: 360,
     driverEarning: 17640,
-    vehicleType: "Canter (3 Ton)",
+    vehicleType: "आयशर 14ft / Eicher Canter (3 Ton)",
     description: "Furniture and household items",
     commissionPaid: false,
   },
@@ -518,10 +583,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         | "commissionPaid"
         | "driverRatedByMerchant"
         | "merchantRatedByDriver"
+        | "vehicleCategory"
+        | "notificationRadiusKm"
+        | "notificationType"
       >
     ) => {
       if (!user) return;
       const commission = Math.round(tripData.freightAmount * COMMISSION_RATE);
+      const vehicleNotifConfig = getVehicleNotificationConfig(tripData.vehicleType);
       const newTrip: Trip = {
         ...tripData,
         id: generateId(),
@@ -535,6 +604,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         driverEarning: tripData.freightAmount - commission,
         createdAt: new Date().toISOString(),
         commissionPaid: false,
+        vehicleCategory: vehicleNotifConfig.category,
+        notificationRadiusKm: vehicleNotifConfig.radiusKm,
+        notificationType: vehicleNotifConfig.notificationType,
       };
       const updated = [newTrip, ...trips];
       await saveTrips(updated);
