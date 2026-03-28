@@ -1,9 +1,8 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
-import { SymbolView } from "expo-symbols";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
 import Colors from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
@@ -11,8 +10,6 @@ import { useApp } from "@/context/AppContext";
 export default function TabLayout() {
   const { user } = useApp();
   const isAdmin = user?.role === "admin";
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
@@ -48,36 +45,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="trips"
         options={{
           title: "Trips",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="shippingbox" tintColor={color} size={24} />
-            ) : (
-              <MaterialCommunityIcons name="truck-outline" size={24} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="truck-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="earnings"
         options={{
           title: "Earnings",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="indianrupeesign.circle" tintColor={color} size={24} />
-            ) : (
-              <MaterialCommunityIcons name="currency-inr" size={24} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="currency-inr" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -85,24 +67,14 @@ export default function TabLayout() {
         options={{
           title: "Admin",
           href: isAdmin ? undefined : null,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="shield.lefthalf.filled" tintColor={color} size={24} />
-            ) : (
-              <MaterialCommunityIcons name="shield-crown-outline" size={24} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="shield-crown-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
         }}
       />
     </Tabs>
