@@ -1,8 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
@@ -10,36 +8,9 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import Colors from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
 
-function NativeTabLayout({ isAdmin }: { isAdmin: boolean }) {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="trips">
-        <Icon sf={{ default: "shippingbox", selected: "shippingbox.fill" }} />
-        <Label>Trips</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="earnings">
-        <Icon sf={{ default: "indianrupeesign.circle", selected: "indianrupeesign.circle.fill" }} />
-        <Label>Earnings</Label>
-      </NativeTabs.Trigger>
-      {isAdmin && (
-        <NativeTabs.Trigger name="admin">
-          <Icon sf={{ default: "shield.lefthalf.filled", selected: "shield.lefthalf.filled" }} />
-          <Label>Admin</Label>
-        </NativeTabs.Trigger>
-      )}
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
-
-function ClassicTabLayout({ isAdmin }: { isAdmin: boolean }) {
+export default function TabLayout() {
+  const { user } = useApp();
+  const isAdmin = user?.role === "admin";
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
@@ -136,14 +107,4 @@ function ClassicTabLayout({ isAdmin }: { isAdmin: boolean }) {
       />
     </Tabs>
   );
-}
-
-export default function TabLayout() {
-  const { user } = useApp();
-  const isAdmin = user?.role === "admin";
-
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout isAdmin={isAdmin} />;
-  }
-  return <ClassicTabLayout isAdmin={isAdmin} />;
 }
