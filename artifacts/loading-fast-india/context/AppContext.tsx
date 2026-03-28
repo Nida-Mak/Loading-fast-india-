@@ -196,10 +196,32 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const COMMISSION_RATE = 0.05;
+export const APP_CONFIG = {
+  commissionRate: 0.02,
+  appName: "Loading Fast India",
+  currency: "INR",
+  upiId: "maksudsaiyed888@oksbi",
+  gst: "24BRLPS3959R1ZN",
+} as const;
+
+const COMMISSION_RATE = APP_CONFIG.commissionRate;
+
 export const ADMIN_PIN = "LFI2024";
 export const VERIFIED_MIN_RATING = 4.0;
 export const VERIFIED_MIN_COUNT = 3;
+
+export function calculateDriverPayment(totalAmount: number): {
+  commission: number;
+  earning: number;
+  ratePercent: string;
+} {
+  const commission = Math.round(totalAmount * APP_CONFIG.commissionRate);
+  return {
+    commission,
+    earning: totalAmount - commission,
+    ratePercent: (APP_CONFIG.commissionRate * 100) + "%",
+  };
+}
 
 const SAMPLE_TRIPS: Trip[] = [
   {
@@ -218,8 +240,8 @@ const SAMPLE_TRIPS: Trip[] = [
     consigneeName: "Ramesh Kumar",
     consigneePhone: "9876543210",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    lfiCommission: 2250,
-    driverEarning: 42750,
+    lfiCommission: 900,
+    driverEarning: 44100,
     vehicleType: "10 Wheeler Truck (20 Ton)",
     description: "Steel rods and construction material",
     commissionPaid: false,
@@ -240,8 +262,8 @@ const SAMPLE_TRIPS: Trip[] = [
     consigneeName: "Priya Nair",
     consigneePhone: "9123456789",
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    lfiCommission: 600,
-    driverEarning: 11400,
+    lfiCommission: 240,
+    driverEarning: 11760,
     vehicleType: "Tata Ace / Mini Truck (1.5 Ton)",
     description: "Mobile phones and laptops",
     commissionPaid: false,
@@ -262,8 +284,8 @@ const SAMPLE_TRIPS: Trip[] = [
     consigneeName: "Suresh Reddy",
     consigneePhone: "9001234567",
     createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    lfiCommission: 900,
-    driverEarning: 17100,
+    lfiCommission: 360,
+    driverEarning: 17640,
     vehicleType: "Canter (3 Ton)",
     description: "Furniture and household items",
     commissionPaid: false,
