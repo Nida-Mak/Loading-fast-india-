@@ -119,6 +119,10 @@ export default function FraudCaseScreen() {
   const [responding, setResponding] = useState(false);
   const [showRespondBox, setShowRespondBox] = useState(false);
   const [noticeCopied, setNoticeCopied] = useState(false);
+  const [legalActionMsg, setLegalActionMsg] = useState("");
+
+  const LEGAL_ACTION_TEXT =
+    "Legal Action Initiated: Your ID is blocked under BNS Section 316 & 318. GPS Location & IP Address are logged for Mangrol, Junagadh jurisdiction. All records will be sent to the Transport Dept.";
 
   const accusedCasesCount = trip
     ? (user?.role === "driver"
@@ -158,7 +162,15 @@ export default function FraudCaseScreen() {
     if (!activeCase) return;
     await escalateFraudCase(activeCase.id);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setLegalActionMsg(LEGAL_ACTION_TEXT);
     await Linking.openURL("https://parivahan.gov.in/parivahan/");
+  };
+
+  const handleCaseAgainstMeExpired = async () => {
+    if (!caseAgainstMe) return;
+    await escalateFraudCase(caseAgainstMe.id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setLegalActionMsg(LEGAL_ACTION_TEXT);
   };
 
   const handleRespond = async () => {
@@ -216,6 +228,71 @@ export default function FraudCaseScreen() {
         </View>
       </LinearGradient>
 
+      {/* ===== LEGAL ACTION BANNER ===== */}
+      {legalActionMsg ? (
+        <View style={{
+          backgroundColor: "#1a0000",
+          borderBottomWidth: 2,
+          borderBottomColor: "#ef4444",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 10,
+        }}>
+          <MaterialCommunityIcons name="gavel" size={22} color="#ef4444" style={{ marginTop: 1 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: "800",
+              color: "#ef4444",
+              letterSpacing: 0.3,
+              marginBottom: 4,
+            }}>
+              ⚖️ LEGAL ACTION INITIATED
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: "#fca5a5",
+              lineHeight: 18,
+              fontWeight: "500",
+            }}>
+              {legalActionMsg}
+            </Text>
+            <View style={{
+              flexDirection: "row",
+              gap: 12,
+              marginTop: 8,
+            }}>
+              <View style={{
+                backgroundColor: "#7f1d1d55",
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderWidth: 1,
+                borderColor: "#7f1d1d",
+              }}>
+                <Text style={{ fontSize: 10, color: "#fca5a5", fontWeight: "700" }}>
+                  BNS 316 & 318
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: "#7f1d1d55",
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderWidth: 1,
+                borderColor: "#7f1d1d",
+              }}>
+                <Text style={{ fontSize: 10, color: "#fca5a5", fontWeight: "700" }}>
+                  Mangrol, Junagadh
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
@@ -261,7 +338,7 @@ export default function FraudCaseScreen() {
 
             <CountdownBadge
               deadlineAt={caseAgainstMe.deadlineAt}
-              onExpired={() => escalateFraudCase(caseAgainstMe.id)}
+              onExpired={handleCaseAgainstMeExpired}
             />
 
             {!showRespondBox ? (
