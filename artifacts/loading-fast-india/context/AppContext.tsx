@@ -71,6 +71,7 @@ export interface Trip {
   lfiCommission: number;
   driverEarning: number;
   vehicleType: string;
+  vehicleNumber?: string;
   vehicleCategory?: VehicleCategory;
   notificationRadiusKm?: number;
   notificationType?: NotificationType;
@@ -122,6 +123,7 @@ export interface FraudCase {
   escalatedAt?: string;
   caseRef: string;
   accusedSuspended?: boolean;
+  vehicleNumber?: string;
 }
 
 export const FRAUD_RESPONSE_MINUTES = 30;
@@ -161,11 +163,85 @@ export const IPC_SECTIONS_MAP: Record<string, IpcSection[]> = {
     { section: "IPC 386", bns: "BNS 308(3)", title: "Extortion / Dhamki se Vasuli", punishment: "10 saal + Jurmana" },
     { section: "IPC 34", bns: "BNS 3(5)", title: "Acts in Common Intention / Mil ke Jurm", punishment: "Upar wali dhara ke barabar" },
   ],
+  "Document Fraud": [
+    { section: "IPC 467", bns: "BNS 336(3)", title: "Forgery of Valuable Security / Nakli Dastavez", punishment: "Umar qaid + Jurmana" },
+    { section: "IPC 471", bns: "BNS 340(1)", title: "Using Forged Document / Jaali Kagaz ka Istemal", punishment: "IPC 467 ke barabar" },
+    { section: "MV Act 192A", bns: "MV Act 192A", title: "Fake Registration / Nakli Gaadi Number", punishment: "1 saal + ₹5,000 Jurmana" },
+  ],
+  "Goods Theft/Misuse": [
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust by Carrier / Carrier ka Dhokha", punishment: "3 saal + Jurmana" },
+    { section: "IPC 403", bns: "BNS 314", title: "Dishonest Misappropriation / Haram Kabza", punishment: "2 saal + Jurmana" },
+    { section: "IPC 379", bns: "BNS 303", title: "Theft / Chori", punishment: "3 saal + Jurmana" },
+  ],
+  "Payment Cheating": [
+    { section: "IPC 420", bns: "BNS 318", title: "Cheating & Inducement / Dhokha", punishment: "7 saal + Jurmana" },
+    { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
+  ],
+  "Overloading": [
+    { section: "MV Act 113", bns: "MV Act 113", title: "Overloading of Vehicle / Gaadi Mein Zyada Maal", punishment: "₹20,000 + ₹2,000/Ton" },
+    { section: "MV Act 114", bns: "MV Act 114", title: "Exceeding Axle Load / Aksle Bhaar Adhik", punishment: "₹20,000 + RC Suspension" },
+  ],
+  "Unauthorized Access": [
+    { section: "IT Act 66C", bns: "IT Act 66C", title: "Identity Theft / Pahchaan ki Chori", punishment: "3 saal + ₹1 Lakh Jurmana" },
+    { section: "IT Act 66D", bns: "IT Act 66D", title: "Cheating by Impersonation / Nakli Pahchaan se Dhokha", punishment: "3 saal + ₹1 Lakh Jurmana" },
+    { section: "IPC 419", bns: "BNS 319", title: "Cheating by Personation / Kisi Aur Ban ke Dhokha", punishment: "3 saal + Jurmana" },
+  ],
   "Kuch aur": [
     { section: "IPC 420", bns: "BNS 318(4)", title: "Cheating / Dhokha", punishment: "7 saal + Jurmana" },
     { section: "IPC 406", bns: "BNS 316", title: "Criminal Breach of Trust / Amanat mein Khiyanat", punishment: "3 saal + Jurmana" },
   ],
 };
+
+export function generateFraudLegalNotice(params: {
+  userName: string;
+  vehicleNumber: string;
+  fraudType: string;
+  location: string;
+  caseRef: string;
+  ipcSections: IpcSection[];
+}): string {
+  const { userName, vehicleNumber, fraudType, location, caseRef, ipcSections } = params;
+  const now = new Date();
+  const timestamp = now.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const sectionList = ipcSections.map((s) => `${s.section} / ${s.bns} — ${s.title}`).join("\n       ");
+  return `╔══════════════════════════════════════╗
+║  LOADING FAST INDIA — LEGAL WARNING  ║
+╚══════════════════════════════════════╝
+
+Case Ref  : ${caseRef}
+Timestamp : ${timestamp} IST
+User/Driver: ${userName}
+Vehicle No: ${vehicleNumber || "Not Provided"}
+Location  : ${location}
+
+⚠ ALERT: System ne '${fraudType}' detect kiya hai.
+Yeh Government of India ke neeche ek criminal offence hai.
+
+Laagu Dharayen (Applied Sections):
+       ${sectionList}
+
+Immediate Actions Taken:
+  1. Aapki ID ko LFI platform par BLACKLIST kar diya gaya hai.
+  2. Aapka GPS Location aur Device ID log kar liya gaya hai.
+  3. Evidence Cyber Cell aur Transport Department ko bheja ja raha hai.
+  4. Aapka account suspend kar diya gaya hai. Dobara login nahi hoga.
+
+Agar yeh galti se hua hai, 30 minute mein jawab dein.
+Jawab nahi dene par FIR darj ki jayegi.
+
+─────────────────────────────────────
+Helpline: 100 / 112  |  Cyber: 1930
+Loading Fast India  •  lfi.app`;
+}
 
 interface AppContextValue {
   user: User | null;
@@ -694,6 +770,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deadlineAt: deadlineAt.toISOString(),
         status: "pending_merchant",
         caseRef,
+        vehicleNumber: trip.vehicleNumber,
       };
 
       const updatedCases = [fraudCase, ...fraudCases];

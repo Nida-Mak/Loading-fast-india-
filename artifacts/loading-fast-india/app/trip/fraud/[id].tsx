@@ -6,6 +6,7 @@ import { Linking } from "react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Clipboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { FraudCase, FRAUD_RESPONSE_MINUTES, IpcSection, useApp } from "@/context/AppContext";
+import { FraudCase, FRAUD_RESPONSE_MINUTES, IpcSection, generateFraudLegalNotice, useApp } from "@/context/AppContext";
 
 function formatDateTime(dateStr?: string) {
   if (!dateStr) return "—";
@@ -117,6 +118,7 @@ export default function FraudCaseScreen() {
   const [respondText, setRespondText] = useState("");
   const [responding, setResponding] = useState(false);
   const [showRespondBox, setShowRespondBox] = useState(false);
+  const [noticeCopied, setNoticeCopied] = useState(false);
 
   const accusedCasesCount = trip
     ? (user?.role === "driver"
@@ -499,6 +501,61 @@ export default function FraudCaseScreen() {
                     Yeh dharayen court mein use ki ja sakti hain. FIR darj karwane ke liye nazdiki police station jaayein ya 100/112 par call karein.
                   </Text>
                 </View>
+              </View>
+            )}
+
+            {/* Legal Notice Card */}
+            {(activeCase ?? myReportedCase) && (
+              <View style={styles.legalNoticeCard}>
+                <View style={styles.legalNoticeHeader}>
+                  <MaterialCommunityIcons name="file-document-alert" size={18} color="#ef4444" />
+                  <Text style={styles.legalNoticeTitle}>Qanooni Notis (Legal Notice)</Text>
+                  <Pressable
+                    style={[styles.copyBtn, noticeCopied && styles.copyBtnDone]}
+                    onPress={() => {
+                      const fc = activeCase ?? myReportedCase;
+                      if (!fc) return;
+                      const notice = generateFraudLegalNotice({
+                        userName: fc.accusedName,
+                        vehicleNumber: fc.vehicleNumber ?? "Not Provided",
+                        fraudType: fc.category,
+                        location: fc.fromCity,
+                        caseRef: fc.caseRef,
+                        ipcSections: fc.ipcSections,
+                      });
+                      Clipboard.setString(notice);
+                      setNoticeCopied(true);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      setTimeout(() => setNoticeCopied(false), 3000);
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name={noticeCopied ? "check" : "content-copy"}
+                      size={14}
+                      color={noticeCopied ? "#22c55e" : Colors.textMuted}
+                    />
+                    <Text style={[styles.copyBtnText, noticeCopied && { color: "#22c55e" }]}>
+                      {noticeCopied ? "Copy Ho Gaya!" : "Copy Karein"}
+                    </Text>
+                  </Pressable>
+                </View>
+                {(() => {
+                  const fc = activeCase ?? myReportedCase;
+                  if (!fc) return null;
+                  const notice = generateFraudLegalNotice({
+                    userName: fc.accusedName,
+                    vehicleNumber: fc.vehicleNumber ?? "Not Provided",
+                    fraudType: fc.category,
+                    location: fc.fromCity,
+                    caseRef: fc.caseRef,
+                    ipcSections: fc.ipcSections,
+                  });
+                  return (
+                    <Text style={styles.legalNoticeText} selectable>
+                      {notice}
+                    </Text>
+                  );
+                })()}
               </View>
             )}
 
@@ -1221,5 +1278,53 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 4,
     lineHeight: 17,
+  },
+  legalNoticeCard: {
+    backgroundColor: "#0d0000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: "#ef444455",
+    marginTop: 4,
+  },
+  legalNoticeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    flexWrap: "wrap",
+  },
+  legalNoticeTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#ef4444",
+    flex: 1,
+  },
+  legalNoticeText: {
+    fontSize: 10.5,
+    fontFamily: "Inter_400Regular",
+    color: "#d1d5db",
+    lineHeight: 16,
+    letterSpacing: 0.2,
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#374151",
+    backgroundColor: "#1f2937",
+  },
+  copyBtnDone: {
+    borderColor: "#22c55e55",
+    backgroundColor: "#052e1655",
+  },
+  copyBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.textMuted,
   },
 });

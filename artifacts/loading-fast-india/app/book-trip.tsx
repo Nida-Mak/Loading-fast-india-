@@ -138,6 +138,7 @@ export default function BookTripScreen() {
   const [toCity, setToCity] = useState("");
   const [goodsType, setGoodsType] = useState("");
   const [vehicleType, setVehicleType] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [freightAmount, setFreightAmount] = useState("");
   const [consigneeName, setConsigneeName] = useState("");
@@ -149,10 +150,10 @@ export default function BookTripScreen() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const commission = freightAmount
-    ? Math.round(parseFloat(freightAmount) * 0.05)
+    ? Math.round(parseFloat(freightAmount) * 0.02)
     : 0;
   const driverEarning = freightAmount
-    ? Math.round(parseFloat(freightAmount) * 0.95)
+    ? Math.round(parseFloat(freightAmount) * 0.98)
     : 0;
 
   const getError = (): string => {
@@ -189,6 +190,7 @@ export default function BookTripScreen() {
         consigneeName: consigneeName.trim(),
         consigneePhone: consigneePhone.trim(),
         vehicleType,
+        vehicleNumber: vehicleNumber.trim().toUpperCase() || undefined,
         description: description.trim(),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -391,6 +393,21 @@ export default function BookTripScreen() {
             />
           </Pressable>
           {renderDropdown("vehicleType", VEHICLE_TYPES, vehicleType, setVehicleType)}
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.inputRow}>
+            <Text style={styles.fieldLabel}>🚛 Gaadi Number (Optional)</Text>
+            <TextInput
+              style={[styles.inlineInput, { textTransform: "uppercase", letterSpacing: 1 }]}
+              placeholder="Jaise: GJ-11-XX-0000"
+              placeholderTextColor={Colors.textMuted}
+              value={vehicleNumber}
+              onChangeText={(v) => setVehicleNumber(v.replace(/[^a-zA-Z0-9-]/g, ""))}
+              autoCapitalize="characters"
+              maxLength={13}
+            />
+          </View>
 
           <View style={styles.cardDivider} />
 
