@@ -271,6 +271,14 @@ interface AppContextValue {
   removeUser: (userId: string) => Promise<void>;
   suspendUser: (userId: string, reason: string) => Promise<void>;
   reinstateUser: (userId: string) => Promise<void>;
+  checkFraudAndAlert: (params: {
+    userId: string;
+    userName: string;
+    vehicleNumber?: string;
+    tripId: string;
+    fraudType: "Document Fraud" | "Route Diversion" | "Goods Theft/Misuse" | "Unauthorized Access";
+    location: string;
+  }) => Promise<{ blocked: boolean; caseRef: string; warningMessage: string }>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -640,6 +648,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await saveUsers(updated);
     },
     [registeredUsers]
+  );
+
+  const checkFraudAndAlert = useCallback(
+    async (params: {
+      userId: string;
+      userName: string;
+      vehicleNumber?: string;
+      tripId: string;
+      fraudType: "Document Fraud" | "Route Diversion" | "Goods Theft/Misuse" | "Unauthorized Access";
+      location: string;
+    }): Promise<{ blocked: boolean; caseRef: string; warningMessage: string }> => {
+      const { userId, userName, vehicleNumber, tripId, fraudType, location } = params;
+      const timestamp = new Date();
+      const year = timestamp.getFullYear();
+      const seq = Math.floor(Math.random() * 9000) + 1000;
+      const caseRef = `LFI-ALERT-${year}-${seq}`;
+      const ipcSections = IPC_SECTIONS_MAP[fraudType] ?? IPC_SECTIONS_MAP["Kuch aur"];
+      const sectionLabels = ipcSections.map((s) => `${s.section}/${s.bns}`).join(", ");
+
+      const warningMessage =
+        `⚠ SYSTEM ALERT — Loading Fast India\n\n` +
+        `Case Ref: ${caseRef}\n` +
+        `System ne '${fraudType}' detect kiya hai.\n\n` +
+        `Laagu Dharayen: ${sectionLabels}\n\n` +
+        `Aapka GPS location aur ID record kar liya gaya hai aur police reporting ke liye forward kiya ja raha hai.\n\n` +
+        `Aapka account turant BLOCK kar diya gaya hai.\n\n` +
+        `Yeh BNS Section 316 & 318 ke antargat criminal offence hai.\n` +
+        `Helpline: 100 / 112  |  Cyber: 1930`;
+
+      const fraudLog = {
+        caseRef,
+        userId,
+        userName,
+        vehicleNumber: vehicleNumber ?? null,
+        tripId,
+        fraudType,
+        location,
+        ipcSections,
+        detectedAt: timestamp.toISOString(),
+        blocked: true,
+        warningMessage,
+      };
+
+      try {
+        await fbWrite(`lfi_fraud_alerts/${caseRef}`, fraudLog);
+      } catch {}
+
+      const suspendReason = `${fraudType} — Auto-detected. ${sectionLabels}. Case: ${caseRef}`;
+      const updatedUsers = registeredUsers.map((u) =>
+        u.id === userId
+          ? { ...u, suspended: true, suspendedAt: timestamp.toISOString(), suspendReason }
+          : u
+      );
+      await saveUsers(updatedUsers);
+
+      return { blocked: true, caseRef, warningMessage };
+    },
+    [registeredUsers, fbWrite, saveUsers]
   );
 
   const createTrip = useCallback(
@@ -1067,6 +1133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeUser,
       suspendUser,
       reinstateUser,
+      checkFraudAndAlert,
     }),
     [
       user,
@@ -1096,6 +1163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeUser,
       suspendUser,
       reinstateUser,
+      checkFraudAndAlert,
     ]
   );
 

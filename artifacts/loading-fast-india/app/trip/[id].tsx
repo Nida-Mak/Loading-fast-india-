@@ -582,7 +582,7 @@ export default function TripDetailScreen() {
           />
           <InfoRow
             icon="percent"
-            label="LFI Commission (5%)"
+            label="LFI Commission (2%)"
             value={formatCurrency(trip.lfiCommission)}
             valueColor={Colors.error}
           />
@@ -592,6 +592,25 @@ export default function TripDetailScreen() {
             value={formatCurrency(trip.driverEarning)}
             valueColor={Colors.success}
           />
+        </View>
+
+        {/* ===== DIGITAL BILTY LEGAL NOTICE ===== */}
+        <View style={styles.biltyLegalCard}>
+          <View style={styles.biltyLegalHeader}>
+            <MaterialCommunityIcons name="scale-balance" size={16} color="#f59e0b" />
+            <Text style={styles.biltyLegalTitle}>Digital Bilty / LR Legal Notice</Text>
+          </View>
+          <Text style={styles.biltyLegalEn}>
+            🇬🇧 This shipment is governed by The Carriage by Road Act, 2007. Any theft or criminal breach of trust will be prosecuted under BNS Section 316. All disputes are subject to Mangrol, Junagadh jurisdiction.
+          </Text>
+          <View style={styles.biltyLegalDivider} />
+          <Text style={styles.biltyLegalHi}>
+            🇮🇳 यह शिपमेंट रोड कैरियर एक्ट, 2007 के अंतर्गत है। माल की चोरी या धोखाधड़ी करने पर BNS धारा 316 के तहत कार्रवाई की जाएगी। सभी कानूनी विवादों का कार्यक्षेत्र मांगरोल, जूनागढ़ होगा।
+          </Text>
+          <View style={styles.biltyLegalFooter}>
+            <Text style={styles.biltyLegalRef}>Bilty: {trip.biltyNumber}</Text>
+            <Text style={styles.biltyLegalRef}>LFI GST: 24BRLPS3959R1ZN</Text>
+          </View>
         </View>
 
         {isDriverView ? (
@@ -1099,6 +1118,56 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  biltyLegalCard: {
+    backgroundColor: "#0c0800",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#f59e0b33",
+  },
+  biltyLegalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  biltyLegalTitle: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: "#f59e0b",
+    letterSpacing: 0.3,
+  },
+  biltyLegalEn: {
+    fontSize: 10.5,
+    fontFamily: "Inter_400Regular",
+    color: "#d1d5db",
+    lineHeight: 15,
+  },
+  biltyLegalDivider: {
+    height: 1,
+    backgroundColor: "#f59e0b22",
+    marginVertical: 8,
+  },
+  biltyLegalHi: {
+    fontSize: 10.5,
+    fontFamily: "Inter_400Regular",
+    color: "#d1d5db",
+    lineHeight: 16,
+  },
+  biltyLegalFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f59e0b22",
+  },
+  biltyLegalRef: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: "#6b7280",
   },
   statusBadge: {
     flexDirection: "row",
