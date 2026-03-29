@@ -22,8 +22,8 @@ import { useDriverLocationTracking, useMerchantLocationWatch } from "@/hooks/use
 
 const COMMISSION_UPI = "maksudsaiyed888@oksbi";
 
-function formatCurrency(amount: number) {
-  return "₹" + amount.toLocaleString("en-IN");
+function formatCurrency(amount: number | undefined | null) {
+  return "₹" + (amount ?? 0).toLocaleString("en-IN");
 }
 
 function formatDateTime(dateStr?: string) {
@@ -251,7 +251,7 @@ export default function TripDetailScreen() {
     );
   }
 
-  const status = STATUS_CONFIG[trip.status];
+  const status = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG["pending"];
 
   const isDriverView = user?.role === "driver";
   const canPayCommission =
@@ -276,7 +276,7 @@ export default function TripDetailScreen() {
   const handleOpenUPI = async () => {
     if (!trip) return;
     const note = encodeURIComponent(`LFI Commission - ${trip.biltyNumber}`);
-    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=Loading%20Fast%20India&am=${trip.lfiCommission}&cu=INR&tn=${note}`;
+    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=Loading%20Fast%20India&am=${trip.lfiCommission ?? 0}&cu=INR&tn=${note}`;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const supported = await Linking.canOpenURL(upiUrl);

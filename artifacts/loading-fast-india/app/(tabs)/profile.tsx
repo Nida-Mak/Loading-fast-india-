@@ -17,8 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
 
-function formatCurrency(amount: number) {
-  return "₹" + amount.toLocaleString("en-IN");
+function formatCurrency(amount: number | undefined | null) {
+  return "₹" + (amount ?? 0).toLocaleString("en-IN");
 }
 
 interface MenuItemProps {

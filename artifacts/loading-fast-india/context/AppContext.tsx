@@ -504,7 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem("lfi_fraud_cases"),
       ]);
 
-      if (userJson) setUser(JSON.parse(userJson));
+      try { if (userJson) setUser(JSON.parse(userJson)); } catch {}
 
       const [fbTrips, fbUsers, fbFraud] = await Promise.all([
         fbRead("lfi_trips"),
@@ -517,7 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setRegisteredUsers(users);
         await AsyncStorage.setItem("lfi_users", JSON.stringify(users));
       } else if (localUsersJson) {
-        setRegisteredUsers(JSON.parse(localUsersJson));
+        try { setRegisteredUsers(JSON.parse(localUsersJson)); } catch {}
       }
 
       if (fbFraud) {
@@ -525,15 +525,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setFraudCases(cases);
         await AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(cases));
       } else if (localFraudJson) {
-        setFraudCases(JSON.parse(localFraudJson));
+        try { setFraudCases(JSON.parse(localFraudJson)); } catch {}
       }
 
+      const sanitizeTrip = (t: any): Trip => ({
+        ...t,
+        lfiCommission: typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02),
+        driverEarning: typeof t.driverEarning === "number" ? t.driverEarning : (t.freightAmount ?? 0) - (typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02)),
+        commissionPaid: t.commissionPaid ?? false,
+        status: ["pending", "accepted", "in_transit", "delivered", "cancelled"].includes(t.status) ? t.status : "pending",
+      });
+
       if (fbTrips) {
-        const trips = snapToArray<Trip>(fbTrips);
+        const trips = snapToArray<Trip>(fbTrips).map(sanitizeTrip);
         setTrips(trips);
         await AsyncStorage.setItem("lfi_trips", JSON.stringify(trips));
       } else if (localTripsJson) {
-        setTrips(JSON.parse(localTripsJson));
+        try { setTrips((JSON.parse(localTripsJson) as any[]).map(sanitizeTrip)); } catch {}
       } else {
         setTrips(SAMPLE_TRIPS);
         await AsyncStorage.setItem("lfi_trips", JSON.stringify(SAMPLE_TRIPS));
@@ -1126,22 +1134,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const total = relevantTrips.reduce(
       (sum, t) =>
         user.role === "driver"
-          ? sum + t.driverEarning
+          ? sum + (t.driverEarning ?? 0)
           : user.role === "admin"
-          ? sum + t.lfiCommission
-          : sum + t.freightAmount,
+          ? sum + (t.lfiCommission ?? 0)
+          : sum + (t.freightAmount ?? 0),
       0
     );
-    const commission = relevantTrips.reduce((sum, t) => sum + t.lfiCommission, 0);
+    const commission = relevantTrips.reduce((sum, t) => sum + (t.lfiCommission ?? 0), 0);
     const thisMonth = relevantTrips
       .filter((t) => new Date(t.deliveredAt || t.createdAt) >= startOfMonth)
       .reduce(
         (sum, t) =>
           user.role === "driver"
-            ? sum + t.driverEarning
+            ? sum + (t.driverEarning ?? 0)
             : user.role === "admin"
-            ? sum + t.lfiCommission
-            : sum + t.freightAmount,
+            ? sum + (t.lfiCommission ?? 0)
+            : sum + (t.freightAmount ?? 0),
         0
       );
 

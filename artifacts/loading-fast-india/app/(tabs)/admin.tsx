@@ -257,7 +257,7 @@ export default function AdminScreen() {
   const drivers = registeredUsers.filter((u) => u.role === "driver");
   const totalCommission = trips
     .filter((t) => t.status === "delivered")
-    .reduce((sum, t) => sum + t.lfiCommission, 0);
+    .reduce((sum, t) => sum + (t.lfiCommission ?? 0), 0);
 
   const filtered =
     activeTab === "merchant"
@@ -438,7 +438,7 @@ export default function AdminScreen() {
                 </View>
                 <Text style={styles.tripRoute}>{t.fromCity} → {t.toCity}</Text>
                 <Text style={styles.tripMerchant}>
-                  {t.merchantName} • ₹{t.lfiCommission.toLocaleString("en-IN")} fee
+                  {t.merchantName} • ₹{(t.lfiCommission ?? 0).toLocaleString("en-IN")} fee
                 </Text>
               </Pressable>
               <Pressable

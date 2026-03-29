@@ -13,8 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { Trip, useApp } from "@/context/AppContext";
 
-function formatCurrency(amount: number) {
-  return "₹" + amount.toLocaleString("en-IN");
+function formatCurrency(amount: number | undefined | null) {
+  return "₹" + (amount ?? 0).toLocaleString("en-IN");
 }
 
 function formatDate(dateStr: string) {
@@ -28,10 +28,10 @@ function formatDate(dateStr: string) {
 function EarningRow({ trip, role }: { trip: Trip; role: string }) {
   const earning =
     role === "driver"
-      ? trip.driverEarning
+      ? (trip.driverEarning ?? 0)
       : role === "admin"
-      ? trip.lfiCommission
-      : trip.freightAmount;
+      ? (trip.lfiCommission ?? 0)
+      : (trip.freightAmount ?? 0);
 
   return (
     <View style={styles.earningRow}>
@@ -105,10 +105,10 @@ export default function EarningsScreen() {
       const amount = monthTrips.reduce(
         (sum, t) =>
           user?.role === "driver"
-            ? sum + t.driverEarning
+            ? sum + (t.driverEarning ?? 0)
             : user?.role === "admin"
-            ? sum + t.lfiCommission
-            : sum + t.freightAmount,
+            ? sum + (t.lfiCommission ?? 0)
+            : sum + (t.freightAmount ?? 0),
         0
       );
       months.push({ month: monthName, amount });

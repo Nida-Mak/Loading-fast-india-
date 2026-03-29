@@ -71,9 +71,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem("lfi_saved_logins").then((raw) => {
-      if (raw) setSavedLogins(JSON.parse(raw));
-    });
+    AsyncStorage.getItem("lfi_saved_logins")
+      .then((raw) => {
+        try { if (raw) setSavedLogins(JSON.parse(raw)); } catch {}
+      })
+      .catch(() => {});
   }, []);
 
   // Merchant-specific fields
@@ -199,12 +201,12 @@ export default function LoginScreen() {
           : undefined;
       await login(name.trim(), phone.trim(), selectedRole, selectedCity, extras);
       if (selectedRole !== "admin") {
-        await saveLoginToMemory({
+        saveLoginToMemory({
           name: name.trim(),
           phone: phone.trim(),
           role: selectedRole,
           city: selectedCity.trim(),
-        });
+        }).catch(() => {});
       }
       router.replace("/(tabs)");
     } catch (err: any) {

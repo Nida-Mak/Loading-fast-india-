@@ -41,7 +41,7 @@ const STATUS_CONFIG: Record<
 };
 
 function TripCard({ trip, onPress }: { trip: Trip; onPress: () => void }) {
-  const status = STATUS_CONFIG[trip.status];
+  const status = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG["pending"];
   return (
     <Pressable
       style={({ pressed }) => [styles.tripCard, pressed && { opacity: 0.8 }]}

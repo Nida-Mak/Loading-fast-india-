@@ -21,8 +21,8 @@ import { Trip, useApp } from "@/context/AppContext";
 const COMMISSION_UPI = "maksudsaiyed888@oksbi";
 const UPI_NAME = "Loading%20Fast%20India";
 
-function formatCurrency(amount: number) {
-  return "₹" + amount.toLocaleString("en-IN");
+function formatCurrency(amount: number | undefined | null) {
+  return "₹" + (amount ?? 0).toLocaleString("en-IN");
 }
 
 function timeAgo(dateStr: string) {
@@ -68,7 +68,7 @@ function CommissionModal({
 
   const openUPI = async () => {
     const note = encodeURIComponent(`LFI Commission - ${trip.biltyNumber}`);
-    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=${UPI_NAME}&am=${trip.lfiCommission}&cu=INR&tn=${note}`;
+    const upiUrl = `upi://pay?pa=${COMMISSION_UPI}&pn=${UPI_NAME}&am=${trip.lfiCommission ?? 0}&cu=INR&tn=${note}`;
     try {
       const supported = await Linking.canOpenURL(upiUrl);
       if (supported) {
@@ -218,7 +218,7 @@ function TripItem({
   onPayCommission?: () => void;
   onPress: () => void;
 }) {
-  const status = STATUS_CONFIG[trip.status];
+  const status = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG["pending"];
   const isPendingForDriver = role === "driver" && trip.status === "pending";
 
   return (
