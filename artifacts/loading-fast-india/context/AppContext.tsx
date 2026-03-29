@@ -483,7 +483,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const db = getFirebaseDB();
       if (!db) return null;
       const snap = await get(ref(db, path));
-      return snap.exists() ? snap.val() : null;
+      return snap.exists() ? snap.val() : undefined;
     } catch {
       return null;
     }
@@ -540,6 +540,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const trips = snapToArray<Trip>(fbTrips).map(sanitizeTrip);
         setTrips(trips);
         await AsyncStorage.setItem("lfi_trips", JSON.stringify(trips));
+      } else if (fbTrips === undefined) {
+        setTrips([]);
+        await AsyncStorage.setItem("lfi_trips", JSON.stringify([]));
       } else if (localTripsJson) {
         try { setTrips((JSON.parse(localTripsJson) as any[]).map(sanitizeTrip)); } catch {}
       } else {

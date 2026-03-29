@@ -132,7 +132,10 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, isLoading, trips, registeredUsers, fraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
+  const { user, isLoading, trips: rawTrips, registeredUsers: rawRegisteredUsers, fraudCases: rawFraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
+  const trips = rawTrips ?? [];
+  const registeredUsers = rawRegisteredUsers ?? [];
+  const fraudCases = rawFraudCases ?? [];
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");

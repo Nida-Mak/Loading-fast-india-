@@ -36,10 +36,11 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
   const handleRestart = async () => {
     try {
+      resetError();
       if (Platform.OS === "web") {
         if (typeof window !== "undefined") window.location.reload();
       } else {
-        router.replace("/");
+        router.replace("/(tabs)/index");
       }
     } catch {
       resetError();

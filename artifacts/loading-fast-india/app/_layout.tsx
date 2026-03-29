@@ -94,7 +94,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/index");
       } else {
         router.replace("/login");
       }
