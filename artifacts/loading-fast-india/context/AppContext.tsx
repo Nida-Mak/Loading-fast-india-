@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { get, ref, set } from "firebase/database";
+import { get, onValue, ref, set } from "firebase/database";
 import * as Location from "expo-location";
 import React, {
   createContext,
@@ -460,6 +460,14 @@ function computeVerified(rating: number, totalRatings: number): boolean {
   return rating >= VERIFIED_MIN_RATING && totalRatings >= VERIFIED_MIN_COUNT;
 }
 
+const sanitizeTrip = (t: any): Trip => ({
+  ...t,
+  lfiCommission: typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02),
+  driverEarning: typeof t.driverEarning === "number" ? t.driverEarning : (t.freightAmount ?? 0) - (typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02)),
+  commissionPaid: t.commissionPaid ?? false,
+  status: ["pending", "accepted", "in_transit", "delivered", "cancelled"].includes(t.status) ? t.status : "pending",
+});
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -467,9 +475,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [fraudCases, setFraudCases] = useState<FraudCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const snapToArray = <T,>(val: unknown): T[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val as T[];
+    return Object.values(val as Record<string, T>);
+  };
 
   const fbWrite = async (path: string, data: unknown) => {
     try {
@@ -489,72 +499,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const snapToArray = <T,>(val: unknown): T[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val as T[];
-    return Object.values(val as Record<string, T>);
-  };
-
-  const loadData = async () => {
-    try {
-      const [userJson, localTripsJson, localUsersJson, localFraudJson] = await Promise.all([
-        AsyncStorage.getItem("lfi_user"),
-        AsyncStorage.getItem("lfi_trips"),
-        AsyncStorage.getItem("lfi_users"),
-        AsyncStorage.getItem("lfi_fraud_cases"),
-      ]);
-
-      try { if (userJson) setUser(JSON.parse(userJson)); } catch {}
-
-      const [fbTrips, fbUsers, fbFraud] = await Promise.all([
-        fbRead("lfi_trips"),
-        fbRead("lfi_users"),
-        fbRead("lfi_fraud_cases"),
-      ]);
-
-      if (fbUsers) {
-        const users = snapToArray<User>(fbUsers);
-        setRegisteredUsers(users);
-        await AsyncStorage.setItem("lfi_users", JSON.stringify(users));
-      } else if (localUsersJson) {
-        try { setRegisteredUsers(JSON.parse(localUsersJson)); } catch {}
-      }
-
-      if (fbFraud) {
-        const cases = snapToArray<FraudCase>(fbFraud);
-        setFraudCases(cases);
-        await AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(cases));
-      } else if (localFraudJson) {
-        try { setFraudCases(JSON.parse(localFraudJson)); } catch {}
-      }
-
-      const sanitizeTrip = (t: any): Trip => ({
-        ...t,
-        lfiCommission: typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02),
-        driverEarning: typeof t.driverEarning === "number" ? t.driverEarning : (t.freightAmount ?? 0) - (typeof t.lfiCommission === "number" ? t.lfiCommission : Math.round((t.freightAmount ?? 0) * 0.02)),
-        commissionPaid: t.commissionPaid ?? false,
-        status: ["pending", "accepted", "in_transit", "delivered", "cancelled"].includes(t.status) ? t.status : "pending",
-      });
-
-      if (fbTrips) {
-        const trips = snapToArray<Trip>(fbTrips).map(sanitizeTrip);
-        setTrips(trips);
-        await AsyncStorage.setItem("lfi_trips", JSON.stringify(trips));
-      } else if (fbTrips === undefined) {
-        setTrips([]);
-        await AsyncStorage.setItem("lfi_trips", JSON.stringify([]));
-      } else if (localTripsJson) {
-        try { setTrips((JSON.parse(localTripsJson) as any[]).map(sanitizeTrip)); } catch {}
-      } else {
-        setTrips(SAMPLE_TRIPS);
-        await AsyncStorage.setItem("lfi_trips", JSON.stringify(SAMPLE_TRIPS));
-        await fbWrite("lfi_trips", Object.fromEntries(SAMPLE_TRIPS.map((t) => [t.id, t])));
-      }
-    } catch {
-    } finally {
+  useEffect(() => {
+    // Step 1: Load user + local data immediately (fast)
+    (async () => {
+      try {
+        const [userJson, localTripsJson, localUsersJson, localFraudJson] = await Promise.all([
+          AsyncStorage.getItem("lfi_user"),
+          AsyncStorage.getItem("lfi_trips"),
+          AsyncStorage.getItem("lfi_users"),
+          AsyncStorage.getItem("lfi_fraud_cases"),
+        ]);
+        try { if (userJson) setUser(JSON.parse(userJson)); } catch {}
+        if (localUsersJson) { try { setRegisteredUsers(JSON.parse(localUsersJson)); } catch {} }
+        if (localFraudJson) { try { setFraudCases(JSON.parse(localFraudJson)); } catch {} }
+        if (localTripsJson) { try { setTrips((JSON.parse(localTripsJson) as any[]).map(sanitizeTrip)); } catch {} }
+        else { setTrips(SAMPLE_TRIPS); }
+      } catch {}
       setIsLoading(false);
-    }
-  };
+    })();
+
+    // Step 2: Real-time Firebase listeners
+    const db = getFirebaseDB();
+    if (!db) return;
+
+    const unsubTrips = onValue(ref(db, "lfi_trips"), async (snap) => {
+      if (snap.exists()) {
+        const arr = snapToArray<Trip>(snap.val()).map(sanitizeTrip);
+        setTrips(arr);
+        AsyncStorage.setItem("lfi_trips", JSON.stringify(arr)).catch(() => {});
+      } else {
+        // Fresh install: no Firebase data yet
+        const local = await AsyncStorage.getItem("lfi_trips").catch(() => null);
+        if (!local) {
+          setTrips(SAMPLE_TRIPS);
+          set(ref(db, "lfi_trips"), Object.fromEntries(SAMPLE_TRIPS.map((t) => [t.id, t]))).catch(() => {});
+        }
+      }
+    });
+
+    const unsubUsers = onValue(ref(db, "lfi_users"), (snap) => {
+      if (snap.exists()) {
+        const arr = snapToArray<User>(snap.val());
+        setRegisteredUsers(arr);
+        AsyncStorage.setItem("lfi_users", JSON.stringify(arr)).catch(() => {});
+      }
+    });
+
+    const unsubFraud = onValue(ref(db, "lfi_fraud_cases"), (snap) => {
+      if (snap.exists()) {
+        const arr = snapToArray<FraudCase>(snap.val());
+        setFraudCases(arr);
+        AsyncStorage.setItem("lfi_fraud_cases", JSON.stringify(arr)).catch(() => {});
+      }
+    });
+
+    return () => {
+      unsubTrips();
+      unsubUsers();
+      unsubFraud();
+    };
+  }, []);
 
   const saveFraudCases = async (updated: FraudCase[]) => {
     setFraudCases(updated);

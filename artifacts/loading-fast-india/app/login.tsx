@@ -157,7 +157,7 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await login(saved.name, saved.phone, saved.role, saved.city);
-      router.replace("/(tabs)");
+      // Navigation handled by _layout.tsx useEffect (avoids double navigation crash)
     } catch (err: any) {
       const msg: string = err?.message ?? "";
       if (msg.startsWith("BLACKLISTED:")) {
@@ -208,7 +208,7 @@ export default function LoginScreen() {
           city: selectedCity.trim(),
         }).catch(() => {});
       }
-      router.replace("/(tabs)");
+      // Navigation handled by _layout.tsx useEffect (avoids double navigation crash)
     } catch (err: any) {
       const msg: string = err?.message ?? "";
       if (msg.startsWith("BLACKLISTED:")) {

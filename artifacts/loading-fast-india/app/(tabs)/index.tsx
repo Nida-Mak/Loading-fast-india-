@@ -40,7 +40,15 @@ const STATUS_CONFIG: Record<
   cancelled: { color: Colors.error, bg: "#2A0000", label: "Cancelled" },
 };
 
-function TripCard({ trip, onPress }: { trip: Trip; onPress: () => void }) {
+function TripCard({
+  trip,
+  onPress,
+  onDelete,
+}: {
+  trip: Trip;
+  onPress: () => void;
+  onDelete?: () => void;
+}) {
   const status = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG["pending"];
   return (
     <Pressable
@@ -57,10 +65,25 @@ function TripCard({ trip, onPress }: { trip: Trip; onPress: () => void }) {
           />
           <Text style={styles.cityText}>{trip.toCity}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-          <Text style={[styles.statusText, { color: status.color }]}>
-            {status.label}
-          </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.label}
+            </Text>
+          </View>
+          {onDelete && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                onDelete();
+              }}
+              hitSlop={8}
+              style={styles.deleteBtn}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF4444" />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -117,7 +140,7 @@ function StatCard({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { user, trips, getEarnings, getAvailableTrips } = useApp();
+  const { user, trips, getEarnings, getAvailableTrips, deleteTrip } = useApp();
   const earnings = useMemo(() => getEarnings(), [getEarnings]);
   const availableTrips = useMemo(() => getAvailableTrips(), [getAvailableTrips]);
 
@@ -358,6 +381,11 @@ export default function HomeScreen() {
                 Haptics.selectionAsync();
                 router.push(`/trip/${trip.id}`);
               }}
+              onDelete={
+                user?.role === "admin"
+                  ? () => deleteTrip(trip.id)
+                  : undefined
+              }
             />
           ))
         )}
@@ -557,6 +585,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
+  },
+  deleteBtn: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,68,68,0.12)",
   },
   tripCardMeta: {
     flexDirection: "row",

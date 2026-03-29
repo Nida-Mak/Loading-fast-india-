@@ -40,7 +40,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       if (Platform.OS === "web") {
         if (typeof window !== "undefined") window.location.reload();
       } else {
-        router.replace("/(tabs)/index");
+        router.replace("/(tabs)" as any);
       }
     } catch {
       resetError();
