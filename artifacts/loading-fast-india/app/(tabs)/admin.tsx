@@ -132,7 +132,7 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, trips, registeredUsers, fraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
+  const { user, isLoading, trips, registeredUsers, fraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
   const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -233,6 +233,15 @@ export default function AdminScreen() {
       setWaSending(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={[styles.infoText, { marginTop: 12 }]}>Loading...</Text>
+      </View>
+    );
+  }
 
   if (!user || user.role !== "admin") {
     return (
@@ -383,9 +392,32 @@ export default function AdminScreen() {
         )}
 
         <View style={styles.allTripsSection}>
-          <Text style={styles.sectionTitle}>Sabhi Trips ({trips.length})</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <Text style={styles.sectionTitle}>Sabhi Trips ({trips.length})</Text>
+            {trips.length > 0 && (
+              <Pressable
+                onPress={async () => {
+                  setDeletingTripId("ALL");
+                  try {
+                    for (const t of trips) await deleteTrip(t.id);
+                  } finally {
+                    setDeletingTripId(null);
+                  }
+                }}
+                style={styles.clearAllBtn}
+              >
+                {deletingTripId === "ALL" ? (
+                  <ActivityIndicator size={12} color="#fff" />
+                ) : (
+                  <Text style={styles.clearAllText}>🗑️ Sab Hatao</Text>
+                )}
+              </Pressable>
+            )}
+          </View>
           {trips.length === 0 && (
-            <Text style={styles.tripMerchant}>Koi trip nahi hai</Text>
+            <Text style={[styles.tripMerchant, { textAlign: "center", paddingVertical: 16 }]}>
+              Koi trip nahi hai
+            </Text>
           )}
           {trips.map((t) => (
             <View key={t.id} style={styles.tripRow}>
@@ -393,53 +425,42 @@ export default function AdminScreen() {
                 style={{ flex: 1 }}
                 onPress={() => router.push(`/trip/${t.id}`)}
               >
-                <Text style={styles.tripBilty}>{t.biltyNumber}</Text>
-                <Text style={styles.tripRoute}>
-                  {t.fromCity} → {t.toCity}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <Text style={styles.tripBilty}>{t.biltyNumber}</Text>
+                  <View style={[styles.statusDot, {
+                    backgroundColor:
+                      t.status === "delivered" ? Colors.success
+                      : t.status === "cancelled" ? Colors.error
+                      : t.status === "in_transit" ? Colors.primary
+                      : t.status === "accepted" ? Colors.info
+                      : Colors.warning,
+                  }]} />
+                </View>
+                <Text style={styles.tripRoute}>{t.fromCity} → {t.toCity}</Text>
                 <Text style={styles.tripMerchant}>
-                  {t.merchantName} • {t.driverName ?? "Driver nahi mila"}
+                  {t.merchantName} • ₹{t.lfiCommission.toLocaleString("en-IN")} fee
                 </Text>
               </Pressable>
-              <View style={{ alignItems: "flex-end", gap: 6 }}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor:
-                        t.status === "delivered"
-                          ? Colors.success
-                          : t.status === "cancelled"
-                          ? Colors.error
-                          : t.status === "in_transit"
-                          ? Colors.primary
-                          : t.status === "accepted"
-                          ? Colors.info
-                          : Colors.warning,
-                    },
-                  ]}
-                />
-                <Text style={styles.commissionText}>
-                  ₹{t.lfiCommission.toLocaleString("en-IN")} fee
-                </Text>
-                <Pressable
-                  onPress={async () => {
-                    setDeletingTripId(t.id);
-                    try {
-                      await deleteTrip(t.id);
-                    } finally {
-                      setDeletingTripId(null);
-                    }
-                  }}
-                  style={styles.tripDeleteBtn}
-                >
-                  {deletingTripId === t.id ? (
-                    <ActivityIndicator size={12} color={Colors.error} />
-                  ) : (
-                    <Ionicons name="trash-outline" size={14} color={Colors.error} />
-                  )}
-                </Pressable>
-              </View>
+              <Pressable
+                onPress={async () => {
+                  setDeletingTripId(t.id);
+                  try {
+                    await deleteTrip(t.id);
+                  } finally {
+                    setDeletingTripId(null);
+                  }
+                }}
+                style={styles.tripDeleteBtn}
+              >
+                {deletingTripId === t.id ? (
+                  <ActivityIndicator size={14} color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={14} color="#fff" />
+                    <Text style={styles.tripDeleteText}>Hatao</Text>
+                  </>
+                )}
+              </Pressable>
             </View>
           ))}
         </View>
@@ -978,11 +999,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tripDeleteBtn: {
-    backgroundColor: Colors.error + "18",
-    borderRadius: 6,
-    padding: 5,
+    backgroundColor: Colors.error,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+    minWidth: 64,
+  },
+  tripDeleteText: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  clearAllBtn: {
+    backgroundColor: Colors.error,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearAllText: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   statusDot: {
     width: 8,
