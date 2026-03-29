@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Modal,
@@ -34,13 +33,14 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const handleRestart = async () => {
+  const handleRestart = () => {
     try {
-      resetError();
       if (Platform.OS === "web") {
         if (typeof window !== "undefined") window.location.reload();
       } else {
-        router.replace("/(tabs)" as any);
+        // resetError() remounts AppProvider which triggers _layout.tsx navigation automatically
+        // DO NOT call router.replace here — it causes double navigation crash
+        resetError();
       }
     } catch {
       resetError();

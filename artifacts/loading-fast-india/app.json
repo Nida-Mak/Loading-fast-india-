@@ -2,7 +2,7 @@
   "expo": {
     "name": "Loading Fast India",
     "slug": "loading-fast-india",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loading-fast-india",
