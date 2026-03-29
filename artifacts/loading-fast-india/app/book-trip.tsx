@@ -142,7 +142,7 @@ export default function BookTripScreen() {
     ? Math.round(parseFloat(freightAmount) * 0.02)
     : 0;
   const driverEarning = freightAmount
-    ? Math.round(parseFloat(freightAmount) * 0.98)
+    ? parseFloat(freightAmount) - commission
     : 0;
 
   const getError = (): string => {
