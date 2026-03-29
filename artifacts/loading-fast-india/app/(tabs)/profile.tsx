@@ -240,7 +240,7 @@ export default function ProfileScreen() {
           </View>
         </LinearGradient>
 
-        {!user?.aadhaarVerified && (
+        {!user?.aadhaarVerified && user?.role !== "admin" && (
           <Pressable
             style={({ pressed }) => [
               styles.kycBanner,
@@ -267,7 +267,7 @@ export default function ProfileScreen() {
           </Pressable>
         )}
 
-        {user?.aadhaarVerified && (
+        {user?.aadhaarVerified && user?.role !== "admin" && (
           <View style={styles.verifiedBanner}>
             <MaterialCommunityIcons
               name="check-decagram"
