@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { router, Stack } from "expo-router";
+import { router, Stack, useRootNavigationState } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
@@ -90,8 +90,11 @@ function OtaUpdateBanner() {
 
 function RootLayoutNav() {
   const { user, isLoading } = useApp();
+  const navState = useRootNavigationState();
 
   useEffect(() => {
+    // Wait for router to be fully ready before navigating
+    if (!navState?.key) return;
     if (!isLoading) {
       if (user) {
         router.replace("/(tabs)" as any);
@@ -99,7 +102,7 @@ function RootLayoutNav() {
         router.replace("/login");
       }
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, navState?.key]);
 
   return (
     <Stack

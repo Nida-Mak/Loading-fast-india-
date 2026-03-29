@@ -11,6 +11,16 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? "",
 };
 
+// Validate config keys and warn on missing
+const missingKeys: string[] = [];
+if (!firebaseConfig.apiKey) missingKeys.push("EXPO_PUBLIC_FIREBASE_API_KEY");
+if (!firebaseConfig.databaseURL) missingKeys.push("EXPO_PUBLIC_FIREBASE_DATABASE_URL");
+if (!firebaseConfig.projectId) missingKeys.push("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
+if (!firebaseConfig.appId) missingKeys.push("EXPO_PUBLIC_FIREBASE_APP_ID");
+if (missingKeys.length > 0) {
+  console.warn("[Firebase] Missing config keys:", missingKeys.join(", "));
+}
+
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
     firebaseConfig.databaseURL &&
