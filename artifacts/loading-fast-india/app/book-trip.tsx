@@ -106,7 +106,7 @@ const GOODS_TYPES = [
 const VEHICLE_TYPES = [
   "छोटा हाथी / Chhota Haathi (0.5 Ton)",
   "ईको वैन / Eco Van (0.75 Ton)",
-  "थ्री-व्हीलर Tempo (1 Ton)",
+  "Loading Rickshaw / थ्री-व्हीलर (1 Ton)",
   "Bike Delivery",
   "Bolero Pickup / Tata 207 (1.5 Ton)",
   "टाटा 407 / Tata 407 (2 Ton)",

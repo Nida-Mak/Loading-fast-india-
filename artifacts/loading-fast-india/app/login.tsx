@@ -1,8 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -19,6 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { ADMIN_PIN, useApp, UserRole } from "@/context/AppContext";
+
+type SavedLogin = { name: string; phone: string; role: UserRole; city: string };
 
 const { width } = Dimensions.get("window");
 
@@ -43,15 +46,35 @@ const ROLES: { key: UserRole; label: string; icon: string; desc: string }[] = [
   },
 ];
 
+const ROLE_ICONS: Record<UserRole, string> = {
+  merchant: "storefront-outline",
+  driver: "truck-delivery-outline",
+  admin: "shield-check-outline",
+};
+const ROLE_LABELS: Record<UserRole, string> = {
+  merchant: "Merchant",
+  driver: "Driver",
+  admin: "Admin",
+};
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { login } = useApp();
+
+  const [savedLogins, setSavedLogins] = useState<SavedLogin[]>([]);
+  const [quickLoading, setQuickLoading] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("merchant");
   const [selectedCity, setSelectedCity] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("lfi_saved_logins").then((raw) => {
+      if (raw) setSavedLogins(JSON.parse(raw));
+    });
+  }, []);
 
   // Merchant-specific fields
   const [businessName, setBusinessName] = useState("");
@@ -118,6 +141,44 @@ export default function LoginScreen() {
     return Object.keys(errs).length === 0;
   };
 
+  const saveLoginToMemory = async (s: SavedLogin) => {
+    const existing: SavedLogin[] = savedLogins.filter(
+      (l) => !(l.phone === s.phone && l.role === s.role)
+    );
+    const updated = [s, ...existing].slice(0, 5);
+    setSavedLogins(updated);
+    await AsyncStorage.setItem("lfi_saved_logins", JSON.stringify(updated));
+  };
+
+  const handleQuickLogin = async (saved: SavedLogin) => {
+    setQuickLoading(saved.phone + saved.role);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await login(saved.name, saved.phone, saved.role, saved.city);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      const msg: string = err?.message ?? "";
+      if (msg.startsWith("BLACKLISTED:")) {
+        setBlacklistedMsg(msg.replace("BLACKLISTED:", "").trim());
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else if (msg.startsWith("SUSPENDED:")) {
+        setSuspendedMsg(msg.replace("SUSPENDED:", "").trim());
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
+      setQuickLoading(null);
+    }
+  };
+
+  const handleRemoveSaved = async (s: SavedLogin) => {
+    const updated = savedLogins.filter(
+      (l) => !(l.phone === s.phone && l.role === s.role)
+    );
+    setSavedLogins(updated);
+    await AsyncStorage.setItem("lfi_saved_logins", JSON.stringify(updated));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const handleLogin = async () => {
     if (!validate()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -137,6 +198,14 @@ export default function LoginScreen() {
             }
           : undefined;
       await login(name.trim(), phone.trim(), selectedRole, selectedCity, extras);
+      if (selectedRole !== "admin") {
+        await saveLoginToMemory({
+          name: name.trim(),
+          phone: phone.trim(),
+          role: selectedRole,
+          city: selectedCity.trim(),
+        });
+      }
       router.replace("/(tabs)");
     } catch (err: any) {
       const msg: string = err?.message ?? "";
@@ -185,6 +254,50 @@ export default function LoginScreen() {
             <Text style={styles.brandName}>Loading Fast India</Text>
             <Text style={styles.tagline}>India ka sabse tez logistics platform</Text>
           </View>
+
+          {savedLogins.length > 0 && (
+            <View style={styles.savedSection}>
+              <Text style={styles.savedTitle}>
+                <Ionicons name="bookmark" size={14} color={Colors.primary} /> Yaad Kiye Hue Accounts
+              </Text>
+              {savedLogins.map((s) => (
+                <View key={s.phone + s.role} style={styles.savedCard}>
+                  <View style={styles.savedAvatar}>
+                    <Ionicons name={ROLE_ICONS[s.role] as any} size={22} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.savedName}>{s.name}</Text>
+                    <Text style={styles.savedSub}>
+                      {ROLE_LABELS[s.role]} • {s.phone}
+                    </Text>
+                    <Text style={styles.savedCity}>{s.city}</Text>
+                  </View>
+                  <Pressable
+                    style={styles.savedRemoveBtn}
+                    onPress={() => handleRemoveSaved(s)}
+                  >
+                    <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                  </Pressable>
+                  <Pressable
+                    style={styles.savedLoginBtn}
+                    onPress={() => handleQuickLogin(s)}
+                    disabled={!!quickLoading}
+                  >
+                    {quickLoading === s.phone + s.role ? (
+                      <ActivityIndicator size={14} color="#fff" />
+                    ) : (
+                      <Text style={styles.savedLoginText}>Login ▶</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ))}
+              <View style={styles.savedDivider}>
+                <View style={styles.savedLine} />
+                <Text style={styles.savedOr}>ya naya account</Text>
+                <View style={styles.savedLine} />
+              </View>
+            </View>
+          )}
 
           {blacklistedMsg ? (
             <View style={[styles.suspendedBanner, { borderColor: "#7f1d1d", backgroundColor: "#1a0000" }]}>
@@ -832,5 +945,87 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 17,
     fontStyle: "italic",
+  },
+  savedSection: {
+    marginBottom: 16,
+  },
+  savedTitle: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.primary,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  savedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1C1C2E",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary + "33",
+    gap: 10,
+  },
+  savedAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.primary + "22",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.primary + "44",
+  },
+  savedName: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+  },
+  savedSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  savedCity: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+  },
+  savedRemoveBtn: {
+    padding: 4,
+  },
+  savedLoginBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 72,
+  },
+  savedLoginText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  savedDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  savedLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  savedOr: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
   },
 });

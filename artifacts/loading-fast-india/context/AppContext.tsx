@@ -309,7 +309,7 @@ export interface VehicleCategoryConfig {
 export const VEHICLE_CONFIG: Record<VehicleCategory, VehicleCategoryConfig> = {
   small: {
     label: "Small Vehicles (Local)",
-    types: ["छोटा हाथी", "chhota haathi", "ईको", "eco", "थ्री-व्हीलर", "three-wheeler", "tempo", "bike", "delivery"],
+    types: ["छोटा हाथी", "chhota haathi", "ईको", "eco", "थ्री-व्हीलर", "three-wheeler", "loading rickshaw", "rickshaw", "tempo", "bike", "delivery"],
     radiusKm: 15,
     notificationType: "instant",
   },
