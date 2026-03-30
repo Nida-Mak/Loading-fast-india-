@@ -87,6 +87,8 @@ export default function LoginScreen() {
   const [adminPin, setAdminPin] = useState("");
   const [showAdminPin, setShowAdminPin] = useState(false);
 
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   const [errors, setErrors] = useState<{
     name?: string;
     phone?: string;
@@ -95,6 +97,7 @@ export default function LoginScreen() {
     aadhaar?: string;
     gst?: string;
     adminPin?: string;
+    terms?: string;
   }>({});
 
   const [suspendedMsg, setSuspendedMsg] = useState("");
@@ -138,6 +141,9 @@ export default function LoginScreen() {
       } else if (adminPin.trim() !== ADMIN_PIN) {
         errs.adminPin = "Galat PIN — Access denied";
       }
+    }
+    if (selectedRole !== "admin" && !termsAccepted) {
+      errs.terms = "Terms & Conditions se agree karna zaroori hai / शर्तें स्वीकार करना ज़रूरी है";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -646,10 +652,55 @@ export default function LoginScreen() {
               </>
             )}
 
+            {/* T&C Checkbox — mandatory for merchant and driver */}
+            {selectedRole !== "admin" && (
+              <View style={styles.termsCheckboxContainer}>
+                <Pressable
+                  style={[
+                    styles.checkbox,
+                    termsAccepted && styles.checkboxChecked,
+                    errors.terms ? styles.checkboxError : null,
+                  ]}
+                  onPress={() => {
+                    setTermsAccepted((v) => !v);
+                    Haptics.selectionAsync();
+                    if (errors.terms) setErrors((e) => ({ ...e, terms: undefined }));
+                  }}
+                  hitSlop={8}
+                >
+                  {termsAccepted && (
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                  )}
+                </Pressable>
+                <Pressable
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    setTermsAccepted((v) => !v);
+                    Haptics.selectionAsync();
+                    if (errors.terms) setErrors((e) => ({ ...e, terms: undefined }));
+                  }}
+                >
+                  <Text style={styles.termsCheckboxText}>
+                    <Text style={styles.termsCheckboxBold}>Main samjhta/samajhti hun ki </Text>
+                    kisi bhi fraud (IPC 420/406) ki sthiti mein{" "}
+                    <Text style={styles.termsCheckboxBold}>'Loading Fast India'</Text>{" "}
+                    ko mera Aadhaar block karne aur Police ko gaadi/account zabt (seize) karne ke liye report karne ka adhikar hai.{"\n"}
+                    <Text style={{ color: "#aaa" }}>
+                      I agree that in case of any fraud (IPC 420/406), 'Loading Fast India' has the right to block my Aadhaar and report to police for vehicle/account seizure.
+                    </Text>
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            {errors.terms ? (
+              <Text style={[styles.errorText, { marginBottom: 8 }]}>{errors.terms}</Text>
+            ) : null}
+
             <Pressable
               style={({ pressed }) => [
                 styles.loginBtn,
                 pressed && { opacity: 0.85 },
+                selectedRole !== "admin" && !termsAccepted && styles.loginBtnDisabled,
               ]}
               onPress={handleLogin}
               disabled={loading}
@@ -849,6 +900,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     color: Colors.textMuted,
+  },
+  termsCheckboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#1A0800",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary + "40",
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  checkboxError: {
+    borderColor: Colors.error,
+  },
+  termsCheckboxText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    flex: 1,
+  },
+  termsCheckboxBold: {
+    fontFamily: "Inter_700Bold",
+    color: Colors.text,
+  },
+  loginBtnDisabled: {
+    opacity: 0.45,
   },
   merchantBanner: {
     flexDirection: "row",
