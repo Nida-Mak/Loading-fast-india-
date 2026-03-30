@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -207,6 +207,32 @@ function CommissionModal({
   );
 }
 
+const COMMISSION_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+function useCommissionTimer(createdAt: string) {
+  const deadline = new Date(createdAt).getTime() + COMMISSION_WINDOW_MS;
+  const calc = () => Math.max(0, deadline - Date.now());
+  const [msLeft, setMsLeft] = useState(calc);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (msLeft <= 0) return;
+    ref.current = setInterval(() => {
+      const remaining = calc();
+      setMsLeft(remaining);
+      if (remaining <= 0 && ref.current) clearInterval(ref.current);
+    }, 1000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, []);
+
+  const mins = Math.floor(msLeft / 60000);
+  const secs = Math.floor((msLeft % 60000) / 1000);
+  const label = `${mins}:${secs.toString().padStart(2, "0")}`;
+  const expired = msLeft <= 0;
+  const urgent = msLeft <= 5 * 60 * 1000; // last 5 min = red
+  return { expired, label, urgent };
+}
+
 function TripItem({
   trip,
   role,
@@ -220,6 +246,7 @@ function TripItem({
 }) {
   const status = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG["pending"];
   const isPendingForDriver = role === "driver" && trip.status === "pending";
+  const timer = useCommissionTimer(trip.createdAt);
 
   return (
     <Pressable
@@ -282,11 +309,31 @@ function TripItem({
           </View>
         </View>
 
-        {isPendingForDriver && (
+        {isPendingForDriver && !timer.expired && (
           <View style={styles.commissionInfoBar}>
             <MaterialCommunityIcons name="shield-alert" size={14} color={Colors.warning} />
             <Text style={styles.commissionInfoText}>
-              Commission: {formatCurrency(trip.lfiCommission)} • Aapki Kamaai: {formatCurrency(trip.driverEarning)}
+              Commission: {formatCurrency(trip.lfiCommission)} • Kamaai: {formatCurrency(trip.driverEarning)}
+            </Text>
+          </View>
+        )}
+
+        {/* Rule 2: 30-min commission countdown for pending trips */}
+        {isPendingForDriver && !timer.expired && (
+          <View style={[styles.commissionTimerBar, timer.urgent && styles.commissionTimerBarUrgent]}>
+            <MaterialCommunityIcons name="timer-outline" size={13} color={timer.urgent ? "#FF4444" : Colors.warning} />
+            <Text style={[styles.commissionTimerText, timer.urgent && { color: "#FF4444" }]}>
+              {timer.label} baaki — Commission pay karo warna ID block hogi / कमीशन दो वरना ID ब्लॉक
+            </Text>
+          </View>
+        )}
+
+        {/* Expired: commission window closed */}
+        {isPendingForDriver && timer.expired && (
+          <View style={styles.commissionExpiredBar}>
+            <MaterialCommunityIcons name="lock" size={13} color="#FF4444" />
+            <Text style={styles.commissionExpiredText}>
+              Time khatam — Yeh trip block ho gayi / समय समाप्त — ID Block Warning
             </Text>
           </View>
         )}
@@ -297,7 +344,8 @@ function TripItem({
             <Text style={styles.timeText}>{timeAgo(trip.createdAt)}</Text>
           </View>
           <View style={styles.tripActions}>
-            {isPendingForDriver && (
+            {/* Commission Pay button — hidden if timer expired (No Commission = No Work) */}
+            {isPendingForDriver && !timer.expired && (
               <Pressable
                 style={styles.commissionBtn}
                 onPress={(e) => {
@@ -306,7 +354,7 @@ function TripItem({
                 }}
               >
                 <MaterialCommunityIcons name="cash" size={14} color="#fff" />
-                <Text style={styles.commissionBtnText}>Commission Pay</Text>
+                <Text style={styles.commissionBtnText}>Load Swikaar / Accept</Text>
               </Pressable>
             )}
             <Pressable style={styles.detailBtn} onPress={onPress}>
@@ -401,6 +449,16 @@ export default function TripsScreen() {
           <MaterialCommunityIcons name="information" size={14} color={Colors.info} />
           <Text style={styles.driverNoticeText}>
             Commission pay karne ke baad merchant ka contact milega
+          </Text>
+        </View>
+      )}
+
+      {/* Rule 3: Red Alert Bar — always visible for drivers */}
+      {user?.role === "driver" && (
+        <View style={styles.redAlertBar}>
+          <MaterialCommunityIcons name="alert" size={14} color="#fff" />
+          <Text style={styles.redAlertText}>
+            ⚠️ Fraud karne par Police Case + Section 102 CrPC ke tehat Gaadi Zabt hogi / धोखाधड़ी पर गाड़ी जब्त
           </Text>
         </View>
       )}
@@ -696,6 +754,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+  commissionTimerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#2A1A00",
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#FF990040",
+  },
+  commissionTimerBarUrgent: {
+    backgroundColor: "#2A0000",
+    borderColor: "#FF444440",
+  },
+  commissionTimerText: {
+    fontSize: 11,
+    color: Colors.warning,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  commissionExpiredBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#2A0000",
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#FF444440",
+  },
+  commissionExpiredText: {
+    fontSize: 11,
+    color: "#FF4444",
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  redAlertBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: "#B91C1C",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  redAlertText: {
+    fontSize: 11,
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+    lineHeight: 16,
   },
   detailBtn: {
     width: 36,

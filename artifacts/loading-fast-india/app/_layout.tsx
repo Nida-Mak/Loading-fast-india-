@@ -101,25 +101,43 @@ function TerminatedNotice() {
     }}>
       <ScrollView contentContainerStyle={{ padding: 24, alignItems: "center", gap: 16 }}>
         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#2A0000", alignItems: "center", justifyContent: "center", marginTop: 20 }}>
-          <Text style={{ fontSize: 32 }}>⚖️</Text>
+          <Text style={{ fontSize: 32 }}>{user.role === "driver" ? "🚛" : "⚖️"}</Text>
         </View>
         <Text style={{ fontSize: 20, fontWeight: "800", color: "#FF4444", textAlign: "center", fontFamily: "Inter_700Bold" }}>
-          Business Permanently Terminated{"\n"}व्यापार स्थायी रूप से बंद
+          {user.role === "driver"
+            ? "Driver ID Permanently Blocked\nड्राइवर ID स्थायी रूप से बंद"
+            : "Business Permanently Terminated\nव्यापार स्थायी रूप से बंद"}
         </Text>
         <View style={{ backgroundColor: "#1C0000", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#FF444440", gap: 10, width: "100%" }}>
           <Text style={{ fontSize: 13, color: "#FF4444", fontWeight: "700", textAlign: "center", fontFamily: "Inter_700Bold" }}>
-            LEGAL NOTICE / कानूनी नोटिस
+            {user.role === "driver" ? "🔴 DRIVER KILL-SWITCH ACTIVE" : "LEGAL NOTICE / कानूनी नोटिस"}
           </Text>
-          <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
-            Aapka business IPC 420/406 aur Section 102 CrPC ke tehat sthayi roop se band kar diya gaya hai.
-          </Text>
-          <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
-            आपका बिज़नेस IPC 420/406 और Section 102 CrPC के तहत स्थायी रूप से बंद कर दिया गया है।
-          </Text>
+
+          {user.role === "driver" ? (
+            <>
+              <Text style={{ fontSize: 13, color: "#FF6666", fontWeight: "700", textAlign: "center", lineHeight: 20 }}>
+                IPC 406/407: Aapka Truck aur Bank Account SEIZED (जब्त) kiya ja raha hai.
+              </Text>
+              <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
+                आपका ट्रक और बैंक खाता IPC 406/407 के तहत जब्त (SEIZED) किया जा रहा है।{"\n"}
+                Section 102 CrPC ke tehat Police ko report kar di gayi hai.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
+                Aapka business IPC 420/406 aur Section 102 CrPC ke tehat sthayi roop se band kar diya gaya hai.
+              </Text>
+              <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
+                आपका बिज़नेस IPC 420/406 और Section 102 CrPC के तहत स्थायी रूप से बंद कर दिया गया है।
+              </Text>
+            </>
+          )}
+
           <View style={{ borderTopWidth: 1, borderTopColor: "#FF444430", paddingTop: 10 }}>
             <Text style={{ fontSize: 11, color: "#888", textAlign: "center", lineHeight: 17 }}>
               Aadhaar aur Device ID Global Blacklist mein darz kar li gayi hai.{"\n"}
-              Helpline: 100 / 112  |  Cyber: 1930
+              Helpline: 100 / 112  |  Cyber Crime: 1930
             </Text>
           </View>
         </View>
