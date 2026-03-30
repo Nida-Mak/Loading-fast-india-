@@ -12,7 +12,8 @@ import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -85,6 +86,65 @@ function OtaUpdateBanner() {
         </Text>
       )}
     </Pressable>
+  );
+}
+
+function TerminatedNotice() {
+  const { user, logout } = useApp();
+  const insets = useSafeAreaInsets();
+  if (!user?.isTerminated) return null;
+  return (
+    <View style={{
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: "#0A0A0F", zIndex: 9999,
+      paddingTop: insets.top, paddingBottom: insets.bottom,
+    }}>
+      <ScrollView contentContainerStyle={{ padding: 24, alignItems: "center", gap: 16 }}>
+        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#2A0000", alignItems: "center", justifyContent: "center", marginTop: 20 }}>
+          <Text style={{ fontSize: 32 }}>⚖️</Text>
+        </View>
+        <Text style={{ fontSize: 20, fontWeight: "800", color: "#FF4444", textAlign: "center", fontFamily: "Inter_700Bold" }}>
+          Business Permanently Terminated{"\n"}व्यापार स्थायी रूप से बंद
+        </Text>
+        <View style={{ backgroundColor: "#1C0000", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#FF444440", gap: 10, width: "100%" }}>
+          <Text style={{ fontSize: 13, color: "#FF4444", fontWeight: "700", textAlign: "center", fontFamily: "Inter_700Bold" }}>
+            LEGAL NOTICE / कानूनी नोटिस
+          </Text>
+          <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
+            Aapka business IPC 420/406 aur Section 102 CrPC ke tehat sthayi roop se band kar diya gaya hai.
+          </Text>
+          <Text style={{ fontSize: 12, color: "#ccc", lineHeight: 19, textAlign: "center" }}>
+            आपका बिज़नेस IPC 420/406 और Section 102 CrPC के तहत स्थायी रूप से बंद कर दिया गया है।
+          </Text>
+          <View style={{ borderTopWidth: 1, borderTopColor: "#FF444430", paddingTop: 10 }}>
+            <Text style={{ fontSize: 11, color: "#888", textAlign: "center", lineHeight: 17 }}>
+              Aadhaar aur Device ID Global Blacklist mein darz kar li gayi hai.{"\n"}
+              Helpline: 100 / 112  |  Cyber: 1930
+            </Text>
+          </View>
+        </View>
+        {user.terminationReason ? (
+          <Text style={{ fontSize: 11, color: "#666", textAlign: "center", lineHeight: 16 }}>
+            Karan / कारण: {user.terminationReason}
+          </Text>
+        ) : null}
+        <Pressable
+          onPress={logout}
+          style={({ pressed }) => ({
+            marginTop: 8,
+            backgroundColor: "#1C1C2E",
+            borderRadius: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 32,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <Text style={{ color: "#888", fontSize: 13, fontFamily: "Inter_500Medium" }}>
+            Logout / बाहर जाएं
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -191,6 +251,7 @@ export default function RootLayout() {
                 <RootLayoutNav />
                 <OfflineBanner />
                 <OtaUpdateBanner />
+                <TerminatedNotice />
               </View>
             </GestureHandlerRootView>
           </AppProvider>

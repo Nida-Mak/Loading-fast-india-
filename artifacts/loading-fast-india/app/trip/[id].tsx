@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useApp, TripStatus, getVehicleNotificationConfig } from "@/context/AppContext";
 import LiveMap from "@/components/LiveMap";
+import PaymentSection from "@/components/PaymentSection";
 import { useDriverLocationTracking, useMerchantLocationWatch } from "@/hooks/useLocationTracking";
 
 const COMMISSION_UPI = "maksudsaiyed888@oksbi";
@@ -911,6 +912,11 @@ export default function TripDetailScreen() {
               </Pressable>
             </View>
           )
+        )}
+
+        {/* ===== PAYMENT SECTION ===== */}
+        {(trip.status === "delivered" || trip.status === "in_transit") && (
+          <PaymentSection tripId={trip.id} driverId={trip.driverId} />
         )}
 
         {/* Inline Confirmation Dialog */}

@@ -62,11 +62,20 @@ function StatCard({
   );
 }
 
-function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
+function UserCard({
+  user,
+  onRemove,
+  onTerminate,
+}: {
+  user: User;
+  onRemove: () => void;
+  onTerminate: () => void;
+}) {
   const isMerchant = user.role === "merchant";
   const roleColor = isMerchant ? Colors.primary : Colors.info;
   const roleLabel = isMerchant ? "Merchant" : "Driver";
   const roleIcon = isMerchant ? "store-outline" : "truck-outline";
+  const [confirmAction, setConfirmAction] = useState<"remove" | "terminate" | null>(null);
 
   return (
     <View style={styles.userCard}>
@@ -79,6 +88,14 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
       </View>
 
       <Text style={styles.userName}>{user.name}</Text>
+
+      {user.isTerminated && (
+        <View style={styles.terminatedBadge}>
+          <MaterialCommunityIcons name="gavel" size={12} color={Colors.error} />
+          <Text style={styles.terminatedBadgeText}>Business Terminated / व्यापार बंद</Text>
+        </View>
+      )}
+
       <View style={styles.infoRow}>
         <Ionicons name="call-outline" size={13} color={Colors.textMuted} />
         <Text style={styles.infoText}>+91 {user.phone}</Text>
@@ -109,19 +126,45 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
         </View>
       ) : null}
 
+      {/* Inline confirm box */}
+      {confirmAction && (
+        <View style={styles.inlineConfirm}>
+          <Text style={styles.inlineConfirmText}>
+            {confirmAction === "terminate"
+              ? `"${user.name}" ka business permanently terminate karein? Yeh action undo nahi hogi.\n"${user.name}" का बिज़नेस स्थायी रूप से बंद करें?`
+              : `"${user.name}" ko list se hatayen?`}
+          </Text>
+          <View style={styles.inlineConfirmBtns}>
+            <Pressable style={styles.inlineCancelBtn} onPress={() => setConfirmAction(null)}>
+              <Text style={styles.inlineCancelText}>Nahi / नहीं</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.inlineConfirmBtn, { backgroundColor: Colors.error }]}
+              onPress={() => {
+                setConfirmAction(null);
+                if (confirmAction === "terminate") onTerminate();
+                else onRemove();
+              }}
+            >
+              <Text style={styles.inlineConfirmBtnText}>Haan / हाँ</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <View style={styles.userCardFooter}>
+        {!user.isTerminated && (
+          <Pressable
+            style={styles.terminateBtn}
+            onPress={() => setConfirmAction("terminate")}
+          >
+            <MaterialCommunityIcons name="gavel" size={14} color="#fff" />
+            <Text style={styles.terminateBtnText}>Terminate Business</Text>
+          </Pressable>
+        )}
         <Pressable
           style={styles.removeBtn}
-          onPress={() => {
-            Alert.alert(
-              "Hatayen?",
-              `Kya aap ${user.name} ko list se hataana chahte hain?`,
-              [
-                { text: "Cancel", style: "cancel" },
-                { text: "Hatayen", style: "destructive", onPress: onRemove },
-              ]
-            );
-          }}
+          onPress={() => setConfirmAction("remove")}
         >
           <Ionicons name="trash-outline" size={14} color={Colors.error} />
           <Text style={styles.removeBtnText}>Hatayen</Text>
@@ -132,7 +175,7 @@ function UserCard({ user, onRemove }: { user: User; onRemove: () => void }) {
 }
 
 export default function AdminScreen() {
-  const { user, isLoading, trips: rawTrips, registeredUsers: rawRegisteredUsers, fraudCases: rawFraudCases, deleteTrip, removeUser, reinstateUser } = useApp();
+  const { user, isLoading, trips: rawTrips, registeredUsers: rawRegisteredUsers, fraudCases: rawFraudCases, deleteTrip, removeUser, reinstateUser, terminateBusiness } = useApp();
   const trips = rawTrips ?? [];
   const registeredUsers = rawRegisteredUsers ?? [];
   const fraudCases = rawFraudCases ?? [];
@@ -390,6 +433,7 @@ export default function AdminScreen() {
               key={u.id}
               user={u}
               onRemove={() => removeUser(u.id)}
+              onTerminate={() => terminateBusiness(u.id)}
             />
           ))
         )}
@@ -958,6 +1002,78 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     color: Colors.error,
+  },
+  terminateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: Colors.error,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  terminateBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  terminatedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.error + "20",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  terminatedBadgeText: {
+    fontSize: 11,
+    color: Colors.error,
+    fontFamily: "Inter_600SemiBold",
+  },
+  inlineConfirm: {
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: Colors.error + "40",
+    gap: 8,
+  },
+  inlineConfirmText: {
+    fontSize: 12,
+    color: Colors.text,
+    lineHeight: 17,
+  },
+  inlineConfirmBtns: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  inlineCancelBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    backgroundColor: Colors.surface,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  inlineCancelText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontFamily: "Inter_500Medium",
+  },
+  inlineConfirmBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  inlineConfirmBtnText: {
+    fontSize: 12,
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
   },
   emptyBox: {
     alignItems: "center",

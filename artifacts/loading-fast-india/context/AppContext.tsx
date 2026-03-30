@@ -42,7 +42,28 @@ export interface User {
   blacklisted?: boolean;
   blacklistedAt?: string;
   blacklistReason?: string;
+  isTerminated?: boolean;
+  terminatedAt?: string;
+  terminationReason?: string;
 }
+
+export interface Payment {
+  id: string;
+  tripId: string;
+  merchantId: string;
+  merchantName: string;
+  driverId: string;
+  driverName: string;
+  utrRef: string;
+  status: "pending" | "verified" | "disputed";
+  submittedAt: string;
+  deadline: string;
+  confirmedAt?: string;
+  disputedAt?: string;
+  autoBlockedAt?: string;
+}
+
+export const PAYMENT_GRACE_MINUTES = 30;
 
 export interface IpcSection {
   section: string;
@@ -252,6 +273,7 @@ interface AppContextValue {
   trips: Trip[];
   registeredUsers: User[];
   fraudCases: FraudCase[];
+  payments: Payment[];
   isLoading: boolean;
   login: (name: string, phone: string, role: UserRole, city: string, extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -284,6 +306,10 @@ interface AppContextValue {
     fraudType: "Document Fraud" | "Route Diversion" | "Goods Theft/Misuse" | "Unauthorized Access";
     location: string;
   }) => Promise<{ blocked: boolean; caseRef: string; warningMessage: string }>;
+  submitPayment: (tripId: string, utrRef: string) => Promise<void>;
+  confirmPayment: (paymentId: string) => Promise<void>;
+  disputePayment: (paymentId: string) => Promise<void>;
+  terminateBusiness: (userId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -473,6 +499,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
   const [fraudCases, setFraudCases] = useState<FraudCase[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const snapToArray = <T,>(val: unknown): T[] => {
@@ -553,10 +580,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    const unsubPayments = onValue(ref(db, "lfi_payments"), (snap) => {
+      if (snap.exists()) {
+        const arr = snapToArray<Payment>(snap.val());
+        setPayments(arr);
+        AsyncStorage.setItem("lfi_payments", JSON.stringify(arr)).catch(() => {});
+      }
+    });
+
+    // Auto-block: check expired pending payments every minute
+    const autoBlockTimer = setInterval(async () => {
+      try {
+        const raw = await AsyncStorage.getItem("lfi_payments");
+        const allPayments: Payment[] = raw ? JSON.parse(raw) : [];
+        const now = new Date();
+        const expired = allPayments.filter(
+          (p) => p.status === "pending" && new Date(p.deadline) < now
+        );
+        if (expired.length === 0) return;
+
+        const usersRaw = await AsyncStorage.getItem("lfi_users");
+        const allUsers: User[] = usersRaw ? JSON.parse(usersRaw) : [];
+        let usersChanged = false;
+        const updatedUsers = allUsers.map((u) => {
+          const hasExpired = expired.some((p) => p.merchantId === u.id);
+          if (hasExpired && !u.isTerminated && !u.blacklisted) {
+            usersChanged = true;
+            return {
+              ...u,
+              blacklisted: true,
+              blacklistedAt: now.toISOString(),
+              blacklistReason: "Payment timeout — IPC 420 / BNS 318. Auto-blocked after 30 min.",
+              suspended: true,
+              suspendedAt: now.toISOString(),
+              suspendReason: "Payment timeout fraud",
+            };
+          }
+          return u;
+        });
+
+        if (usersChanged) {
+          const obj = Object.fromEntries(updatedUsers.map((u) => [u.id, u]));
+          await Promise.all([
+            AsyncStorage.setItem("lfi_users", JSON.stringify(updatedUsers)),
+            set(ref(db, "lfi_users"), obj),
+          ]);
+          setRegisteredUsers(updatedUsers);
+
+          // Mark payments as auto-blocked
+          const updatedPayments = allPayments.map((p) =>
+            expired.some((e) => e.id === p.id)
+              ? { ...p, status: "disputed" as const, autoBlockedAt: now.toISOString() }
+              : p
+          );
+          const pObj = Object.fromEntries(updatedPayments.map((p) => [p.id, p]));
+          await Promise.all([
+            AsyncStorage.setItem("lfi_payments", JSON.stringify(updatedPayments)),
+            set(ref(db, "lfi_payments"), pObj),
+          ]);
+          setPayments(updatedPayments);
+        }
+      } catch {}
+    }, 60000);
+
     return () => {
       unsubTrips();
       unsubUsers();
       unsubFraud();
+      unsubPayments();
+      clearInterval(autoBlockTimer);
     };
   }, []);
 
@@ -1168,12 +1260,120 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, trips]);
 
+  const savePayments = async (updated: Payment[]) => {
+    setPayments(updated);
+    const obj = Object.fromEntries(updated.map((p) => [p.id, p]));
+    await Promise.all([
+      AsyncStorage.setItem("lfi_payments", JSON.stringify(updated)),
+      fbWrite("lfi_payments", obj),
+    ]);
+  };
+
+  const submitPayment = useCallback(
+    async (tripId: string, utrRef: string) => {
+      if (!user) return;
+      const trip = trips.find((t) => t.id === tripId);
+      if (!trip) return;
+      const now = new Date();
+      const deadline = new Date(now.getTime() + PAYMENT_GRACE_MINUTES * 60 * 1000);
+      const payment: Payment = {
+        id: generateId(),
+        tripId,
+        merchantId: user.id,
+        merchantName: user.name,
+        driverId: trip.driverId ?? "",
+        driverName: trip.driverName ?? "",
+        utrRef: utrRef.trim(),
+        status: "pending",
+        submittedAt: now.toISOString(),
+        deadline: deadline.toISOString(),
+      };
+      const updated = [payment, ...payments.filter((p) => p.tripId !== tripId)];
+      await savePayments(updated);
+    },
+    [user, trips, payments]
+  );
+
+  const confirmPayment = useCallback(
+    async (paymentId: string) => {
+      const updated = payments.map((p) =>
+        p.id === paymentId
+          ? { ...p, status: "verified" as const, confirmedAt: new Date().toISOString() }
+          : p
+      );
+      await savePayments(updated);
+    },
+    [payments]
+  );
+
+  const disputePayment = useCallback(
+    async (paymentId: string) => {
+      const updated = payments.map((p) =>
+        p.id === paymentId
+          ? { ...p, status: "disputed" as const, disputedAt: new Date().toISOString() }
+          : p
+      );
+      await savePayments(updated);
+      // Auto-block the merchant immediately on dispute
+      const disputed = payments.find((p) => p.id === paymentId);
+      if (!disputed) return;
+      const now = new Date().toISOString();
+      const updatedUsers = registeredUsers.map((u) =>
+        u.id === disputed.merchantId
+          ? {
+              ...u,
+              blacklisted: true,
+              blacklistedAt: now,
+              blacklistReason: "Driver ne payment nahi mili report ki — IPC 420 / BNS 318.",
+              suspended: true,
+              suspendedAt: now,
+              suspendReason: "Payment disputed by driver",
+            }
+          : u
+      );
+      await saveUsers(updatedUsers);
+    },
+    [payments, registeredUsers]
+  );
+
+  const terminateBusiness = useCallback(
+    async (userId: string) => {
+      const now = new Date().toISOString();
+      const reason = "IPC 420/406 aur Section 102 CrPC ke tehat aapka business sthayi roop se band kar diya gaya hai. / Business permanently terminated under IPC 420/406 & Section 102 CrPC.";
+      const updatedUsers = registeredUsers.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              isTerminated: true,
+              terminatedAt: now,
+              terminationReason: reason,
+              blacklisted: true,
+              blacklistedAt: now,
+              blacklistReason: reason,
+              suspended: true,
+              suspendedAt: now,
+              suspendReason: reason,
+            }
+          : u
+      );
+      await saveUsers(updatedUsers);
+      await fbWrite(`lfi_global_blacklist/${userId}`, {
+        userId,
+        terminatedAt: now,
+        reason,
+        aadhaarNumber: registeredUsers.find((u) => u.id === userId)?.aadhaarNumber ?? null,
+      });
+    },
+    [registeredUsers]
+  );
+
   const value = useMemo(
     () => ({
       user,
       trips,
       registeredUsers,
       fraudCases,
+      payments,
       isLoading,
       login,
       logout,
@@ -1199,12 +1399,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       suspendUser,
       reinstateUser,
       checkFraudAndAlert,
+      submitPayment,
+      confirmPayment,
+      disputePayment,
+      terminateBusiness,
     }),
     [
       user,
       trips,
       registeredUsers,
       fraudCases,
+      payments,
       isLoading,
       login,
       logout,
@@ -1230,6 +1435,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       suspendUser,
       reinstateUser,
       checkFraudAndAlert,
+      submitPayment,
+      confirmPayment,
+      disputePayment,
+      terminateBusiness,
     ]
   );
 
