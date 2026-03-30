@@ -19,6 +19,7 @@ import Colors from "@/constants/colors";
 import { useApp, TripStatus, getVehicleNotificationConfig } from "@/context/AppContext";
 import LiveMap from "@/components/LiveMap";
 import PaymentSection from "@/components/PaymentSection";
+import SignatureModal from "@/components/SignatureModal";
 import { useDriverLocationTracking, useMerchantLocationWatch } from "@/hooks/useLocationTracking";
 
 const COMMISSION_UPI = "maksudsaiyed888@oksbi";
@@ -210,13 +211,16 @@ function UserRatingBadge({ rating, totalRatings, isVerified, name }: {
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, user, registeredUsers, fraudCases, payCommissionAndAccept, startTrip, deliverTrip, cancelTrip, rateUser, getFraudCasesForTrip } =
+  const { trips, user, registeredUsers, fraudCases, payCommissionAndAccept, startTrip, deliverTrip, deliverTripWithSignature, raisePaymentDispute, cancelTrip, rateUser, getFraudCasesForTrip } =
     useApp();
   const insets = useSafeAreaInsets();
 
   const trip = useMemo(() => trips.find((t) => t.id === id), [trips, id]);
   const [loading, setLoading] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [disputeLoading, setDisputeLoading] = useState(false);
+  const [disputeRaised, setDisputeRaised] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ action: "start" | "deliver" | "cancel"; msg: string } | null>(null);
   const [selectedStars, setSelectedStars] = useState(0);
   const [ratingLoading, setRatingLoading] = useState(false);
@@ -311,7 +315,42 @@ export default function TripDetailScreen() {
   };
 
   const handleAction = (action: "start" | "deliver" | "cancel", confirmMsg: string) => {
+    if (action === "deliver") {
+      setShowSignatureModal(true);
+      return;
+    }
     setPendingAction({ action, msg: confirmMsg });
+  };
+
+  const handleSignatureConfirm = async (svgPath: string) => {
+    if (!trip) return;
+    setShowSignatureModal(false);
+    setLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await deliverTripWithSignature(trip.id, svgPath);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRaiseDispute = async () => {
+    if (!trip) return;
+    setDisputeLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    try {
+      await raisePaymentDispute(trip.id);
+      setDisputeRaised(true);
+      const merchant = registeredUsers.find((u) => u.id === trip.merchantId);
+      if (merchant?.phone) {
+        await Linking.openURL(`tel:${merchant.phone}`);
+      }
+    } catch {
+    } finally {
+      setDisputeLoading(false);
+    }
   };
 
   const executeAction = async () => {
@@ -919,6 +958,82 @@ export default function TripDetailScreen() {
           <PaymentSection tripId={trip.id} driverId={trip.driverId} />
         )}
 
+        {/* ===== DIGITAL SIGNATURE PROOF ===== */}
+        {trip.signatureCollectedAt && (
+          <View style={styles.signatureProofCard}>
+            <MaterialCommunityIcons name="draw-pen" size={18} color={Colors.success} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.signatureProofTitle}>✅ Digital Hastakshar Mila Hua Hai</Text>
+              <Text style={styles.signatureProofSub}>
+                Delivery proof: {new Date(trip.signatureCollectedAt).toLocaleString("hi-IN")}
+              </Text>
+              <Text style={styles.signatureProofLegal}>
+                🔒 IPC 420/406 ke tahat yeh court mein valid saboot hai
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ===== SOS DISPUTE BUTTON — Driver only, delivered trip ===== */}
+        {isDriverView && trip.status === "delivered" && trip.driverId === user?.id && (
+          <View style={styles.sosSection}>
+            {(trip.hasUnpaidDispute || disputeRaised) ? (
+              <View style={styles.disputeActiveCard}>
+                <MaterialCommunityIcons name="alert-octagon" size={20} color={Colors.error} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.disputeActiveTitle}>⚠️ Payment Dispute Active Hai</Text>
+                  <Text style={styles.disputeActiveSub}>
+                    Firebase mein dispute mark ho gaya. Vyapari ki ID se naya booking band hai.
+                  </Text>
+                  <Text style={styles.disputeLegalText}>
+                    🚨 IPC 420 (Dhokhadhadi) aur IPC 406 (Amanat mein Khiyanat) — Digital hastakshar saboot hai. Bhugtan na karna apradh hai. Aapki ID block kar di gayi hai.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.sosCard}>
+                <View style={styles.sosCardHeader}>
+                  <MaterialCommunityIcons name="phone-alert" size={20} color={Colors.error} />
+                  <Text style={styles.sosCardTitle}>Kiraya Nahi Mila? SOS</Text>
+                </View>
+                <Text style={styles.sosCardSub}>
+                  Agar vyapari ne kiraya nahi diya, neeche button dabao. Seedha call jaayega aur dispute register hoga.
+                </Text>
+                <Pressable
+                  style={[styles.sosBtn, disputeLoading && { opacity: 0.6 }]}
+                  onPress={handleRaiseDispute}
+                  disabled={disputeLoading}
+                >
+                  {disputeLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="phone-in-talk" size={18} color="#fff" />
+                      <Text style={styles.sosBtnText}>🚨 SOS — Dispute & Call Karo</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ===== DISPUTE NOTICE — Merchant view ===== */}
+        {user?.role === "merchant" && (trip.hasUnpaidDispute || disputeRaised) && (
+          <View style={styles.merchantDisputeNotice}>
+            <MaterialCommunityIcons name="gavel" size={20} color={Colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.merchantDisputeTitle}>⚠️ Bhugtan Vivad Active Hai</Text>
+              <Text style={styles.merchantDisputeText}>
+                Savdhaan! Loading Fast India ke paas aapke digital hastakshar ka saboot hai. Bhugtan na karna apradh hai. Aapki ID block kar di gayi hai.
+              </Text>
+              <Text style={styles.merchantDisputeLegal}>
+                IPC 420 (Dhokhadhadi) • IPC 406 (Amanat mein Khiyanat)
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Inline Confirmation Dialog */}
         {pendingAction && (
           <View style={styles.confirmBox}>
@@ -1088,6 +1203,13 @@ export default function TripDetailScreen() {
           )}
         </View>
       )}
+
+      {/* ===== SIGNATURE MODAL ===== */}
+      <SignatureModal
+        visible={showSignatureModal}
+        onConfirm={handleSignatureConfirm}
+        onCancel={() => setShowSignatureModal(false)}
+      />
     </View>
   );
 }
@@ -1904,5 +2026,131 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
     lineHeight: 17,
+  },
+  signatureProofCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(0,200,83,0.07)",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.success + "40",
+    marginBottom: 8,
+  },
+  signatureProofTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.success,
+  },
+  signatureProofSub: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  signatureProofLegal: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "#f0a500",
+    marginTop: 4,
+  },
+  sosSection: {
+    marginBottom: 8,
+  },
+  sosCard: {
+    backgroundColor: "#1a0000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.error + "60",
+    gap: 10,
+  },
+  sosCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sosCardTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  sosCardSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  sosBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    paddingVertical: 14,
+  },
+  sosBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  disputeActiveCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#200000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+  },
+  disputeActiveTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  disputeActiveSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: 3,
+  },
+  disputeLegalText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "#ff6b6b",
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  merchantDisputeNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#200000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: Colors.error,
+    marginBottom: 8,
+  },
+  merchantDisputeTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+  },
+  merchantDisputeText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  merchantDisputeLegal: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+    marginTop: 5,
   },
 });

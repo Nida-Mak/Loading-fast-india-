@@ -123,6 +123,10 @@ export interface Trip {
   driverRatedByMerchant?: boolean;
   merchantRatedByDriver?: boolean;
   fraudReportedBy?: string[];
+  signatureSvgPath?: string;
+  signatureCollectedAt?: string;
+  hasUnpaidDispute?: boolean;
+  disputeRaisedAt?: string;
 }
 
 export interface ChatMessage {
@@ -299,6 +303,8 @@ interface AppContextValue {
   payCommissionAndAccept: (tripId: string) => Promise<void>;
   startTrip: (tripId: string) => Promise<void>;
   deliverTrip: (tripId: string) => Promise<void>;
+  deliverTripWithSignature: (tripId: string, svgPath: string) => Promise<void>;
+  raisePaymentDispute: (tripId: string) => Promise<void>;
   cancelTrip: (tripId: string) => Promise<void>;
   rateUser: (targetUserId: string, tripId: string, stars: number, raterRole: "merchant" | "driver") => Promise<void>;
   reportFraud: (tripId: string) => Promise<void>;
@@ -1179,6 +1185,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [trips]
   );
 
+  const deliverTripWithSignature = useCallback(
+    async (tripId: string, svgPath: string) => {
+      const now = new Date().toISOString();
+      const updated = trips.map((t) =>
+        t.id === tripId
+          ? {
+              ...t,
+              status: "delivered" as TripStatus,
+              deliveredAt: now,
+              signatureSvgPath: svgPath,
+              signatureCollectedAt: now,
+            }
+          : t
+      );
+      await saveTrips(updated);
+    },
+    [trips]
+  );
+
+  const raisePaymentDispute = useCallback(
+    async (tripId: string) => {
+      const now = new Date().toISOString();
+      const updated = trips.map((t) =>
+        t.id === tripId
+          ? { ...t, hasUnpaidDispute: true, disputeRaisedAt: now }
+          : t
+      );
+      await saveTrips(updated);
+    },
+    [trips]
+  );
+
   const cancelTrip = useCallback(
     async (tripId: string) => {
       const updated = trips.map((t) =>
@@ -1415,6 +1453,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       payCommissionAndAccept,
       startTrip,
       deliverTrip,
+      deliverTripWithSignature,
+      raisePaymentDispute,
       cancelTrip,
       rateUser,
       reportFraud,
@@ -1451,6 +1491,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       payCommissionAndAccept,
       startTrip,
       deliverTrip,
+      deliverTripWithSignature,
+      raisePaymentDispute,
       cancelTrip,
       rateUser,
       reportFraud,

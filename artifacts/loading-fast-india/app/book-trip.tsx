@@ -121,7 +121,11 @@ type DropdownField = "goodsType" | "vehicleType" | null;
 
 export default function BookTripScreen() {
   const insets = useSafeAreaInsets();
-  const { createTrip } = useApp();
+  const { createTrip, user, trips } = useApp();
+
+  const hasUnpaidDispute = trips.some(
+    (t) => t.merchantId === user?.id && t.hasUnpaidDispute === true
+  );
 
   const [fromCity, setFromCity] = useState("");
   const [toCity, setToCity] = useState("");
@@ -511,15 +515,32 @@ export default function BookTripScreen() {
           </View>
         ) : null}
 
+        {/* DISPUTE BLOCK NOTICE */}
+        {hasUnpaidDispute && (
+          <View style={styles.disputeBlockNotice}>
+            <MaterialCommunityIcons name="gavel" size={22} color={Colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.disputeBlockTitle}>🚫 Naya Booking Band Hai</Text>
+              <Text style={styles.disputeBlockText}>
+                Savdhaan! Aapka pichla kiraya pay nahi hua hai. Ek ya adhik trips mein payment dispute active hai.
+              </Text>
+              <Text style={styles.disputeBlockLegal}>
+                IPC 420 (Dhokhadhadi) • IPC 406 (Amanat mein Khiyanat){"\n"}
+                Loading Fast India ke paas aapke digital hastakshar ka saboot hai. Bhugtan karo, tab hi naya booking hoga.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* SUBMIT */}
         <Pressable
           style={({ pressed }) => [
             styles.submitBtn,
             pressed && { opacity: 0.88 },
-            submitting && { opacity: 0.7 },
+            (submitting || hasUnpaidDispute) && { opacity: 0.35 },
           ]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || hasUnpaidDispute}
           accessibilityLabel="Trip Book Karo & Bilty Banao"
         >
           {submitting ? (
@@ -871,6 +892,37 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     color: Colors.error,
     lineHeight: 18,
+  },
+  disputeBlockNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#200000",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: Colors.error,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  disputeBlockTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.error,
+    marginBottom: 4,
+  },
+  disputeBlockText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  disputeBlockLegal: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: "#ff6b6b",
+    lineHeight: 16,
   },
   submitBtn: {
     flexDirection: "row",
