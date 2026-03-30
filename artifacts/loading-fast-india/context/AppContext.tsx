@@ -21,6 +21,22 @@ export type TripStatus =
   | "delivered"
   | "cancelled";
 
+export interface DriverVehicle {
+  id: string;
+  vehicleNumber: string;
+  aadhaarNumber: string;
+  addedAt: string;
+}
+
+export interface MerchantBusiness {
+  id: string;
+  businessName: string;
+  aadhaarNumber: string;
+  address: string;
+  gstNumber?: string;
+  addedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -45,6 +61,8 @@ export interface User {
   isTerminated?: boolean;
   terminatedAt?: string;
   terminationReason?: string;
+  driverVehicles?: DriverVehicle[];
+  merchantEntities?: MerchantBusiness[];
 }
 
 export interface Payment {
@@ -685,7 +703,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       phone: string,
       role: UserRole,
       city: string,
-      extras?: { businessName?: string; aadhaarNumber?: string; gstNumber?: string }
+      extras?: {
+        businessName?: string;
+        aadhaarNumber?: string;
+        gstNumber?: string;
+        driverVehicles?: DriverVehicle[];
+        merchantEntities?: MerchantBusiness[];
+      }
     ) => {
       const existingJson = await AsyncStorage.getItem("lfi_users");
       const existing: User[] = existingJson ? JSON.parse(existingJson) : [];
@@ -699,19 +723,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         throw new Error(`SUSPENDED:${existingUser.suspendReason ?? "Fraud complaint ke karan aapka account band kar diya gaya hai."}`);
       }
 
-      const newUser: User = existingUser ?? {
-        id: generateId(),
-        name,
-        phone,
-        role,
-        aadhaarVerified: false,
-        city,
-        registeredAt: new Date().toISOString(),
-        rating: 0,
-        totalRatings: 0,
-        isVerified: false,
-        ...(extras ?? {}),
-      };
+      const { driverVehicles, merchantEntities, ...coreExtras } = extras ?? {};
+
+      const newUser: User = existingUser
+        ? {
+            ...existingUser,
+            ...(driverVehicles ? { driverVehicles } : {}),
+            ...(merchantEntities ? { merchantEntities } : {}),
+          }
+        : {
+            id: generateId(),
+            name,
+            phone,
+            role,
+            aadhaarVerified: false,
+            city,
+            registeredAt: new Date().toISOString(),
+            rating: 0,
+            totalRatings: 0,
+            isVerified: false,
+            ...coreExtras,
+            ...(driverVehicles ? { driverVehicles } : {}),
+            ...(merchantEntities ? { merchantEntities } : {}),
+          };
 
       setUser(newUser);
       await AsyncStorage.setItem("lfi_user", JSON.stringify(newUser));

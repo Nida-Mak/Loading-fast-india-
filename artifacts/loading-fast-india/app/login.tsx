@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { ADMIN_PIN, useApp, UserRole } from "@/context/AppContext";
+import { ADMIN_PIN, useApp, UserRole, DriverVehicle, MerchantBusiness } from "@/context/AppContext";
 
 type SavedLogin = { name: string; phone: string; role: UserRole; city: string };
 
@@ -88,6 +88,43 @@ export default function LoginScreen() {
   const [showAdminPin, setShowAdminPin] = useState(false);
 
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Multi-Entity: Driver Vehicles
+  const [driverVehicles, setDriverVehicles] = useState<
+    { vehicleNumber: string; aadhaarNumber: string; aadhaarHidden: boolean }[]
+  >([]);
+
+  // Multi-Entity: Merchant Businesses
+  const [merchantEntities, setMerchantEntities] = useState<
+    { businessName: string; aadhaarNumber: string; address: string; gstNumber: string; aadhaarHidden: boolean }[]
+  >([]);
+
+  const addDriverVehicle = () => {
+    if (driverVehicles.length >= 2) return;
+    setDriverVehicles((v) => [...v, { vehicleNumber: "", aadhaarNumber: "", aadhaarHidden: true }]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const removeDriverVehicle = (i: number) => {
+    setDriverVehicles((v) => v.filter((_, idx) => idx !== i));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const addMerchantEntity = () => {
+    if (merchantEntities.length >= 2) return;
+    setMerchantEntities((v) => [...v, { businessName: "", aadhaarNumber: "", address: "", gstNumber: "", aadhaarHidden: true }]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const removeMerchantEntity = (i: number) => {
+    setMerchantEntities((v) => v.filter((_, idx) => idx !== i));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const formatAadhaarRaw = (raw: string) => {
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 12);
+    return digits.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3").trim();
+  };
 
   const [errors, setErrors] = useState<{
     name?: string;
@@ -197,12 +234,37 @@ export default function LoginScreen() {
     setSuspendedMsg("");
     setBlacklistedMsg("");
     try {
+      const builtDriverVehicles: DriverVehicle[] = driverVehicles
+        .filter((v) => v.vehicleNumber.trim() && v.aadhaarNumber.replace(/\s/g, "").length === 12)
+        .map((v) => ({
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+          vehicleNumber: v.vehicleNumber.trim().toUpperCase(),
+          aadhaarNumber: v.aadhaarNumber.replace(/\s/g, ""),
+          addedAt: new Date().toISOString(),
+        }));
+
+      const builtMerchantEntities: MerchantBusiness[] = merchantEntities
+        .filter((e) => e.businessName.trim() && e.aadhaarNumber.replace(/\s/g, "").length === 12 && e.address.trim())
+        .map((e) => ({
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+          businessName: e.businessName.trim(),
+          aadhaarNumber: e.aadhaarNumber.replace(/\s/g, ""),
+          address: e.address.trim(),
+          gstNumber: e.gstNumber.trim() || undefined,
+          addedAt: new Date().toISOString(),
+        }));
+
       const extras =
         selectedRole === "merchant"
           ? {
               businessName: businessName.trim(),
               aadhaarNumber: aadhaarNumber.replace(/\s/g, ""),
               gstNumber: gstNumber.trim() || undefined,
+              merchantEntities: builtMerchantEntities.length > 0 ? builtMerchantEntities : undefined,
+            }
+          : selectedRole === "driver"
+          ? {
+              driverVehicles: builtDriverVehicles.length > 0 ? builtDriverVehicles : undefined,
             }
           : undefined;
       await login(name.trim(), phone.trim(), selectedRole, selectedCity, extras);
@@ -585,6 +647,80 @@ export default function LoginScreen() {
                     GST optional hai — sirf Aadhaar zaroori hai. GST nahi hai to yeh khali chhodein.
                   </Text>
                 </View>
+
+                {/* ===== MERCHANT MULTI-ENTITY ===== */}
+                <View style={styles.entitySectionHeader}>
+                  <MaterialCommunityIcons name="domain-plus" size={15} color={Colors.primary} />
+                  <Text style={styles.entitySectionTitle}>Additional Business Profiles (Max 2)</Text>
+                </View>
+                {merchantEntities.map((ent, i) => (
+                  <View key={i} style={styles.entityCard}>
+                    <View style={styles.entityCardHead}>
+                      <Text style={styles.entityCardLabel}>Business #{i + 2}</Text>
+                      <Pressable onPress={() => removeMerchantEntity(i)}>
+                        <Ionicons name="close-circle" size={18} color={Colors.error} />
+                      </Pressable>
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <MaterialCommunityIcons name="domain" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Business / Firm Name *"
+                        placeholderTextColor={Colors.textMuted}
+                        value={ent.businessName}
+                        onChangeText={(v) => setMerchantEntities((prev) => prev.map((e, idx) => idx === i ? { ...e, businessName: v } : e))}
+                      />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <Ionicons name="location-outline" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Business Address *"
+                        placeholderTextColor={Colors.textMuted}
+                        value={ent.address}
+                        onChangeText={(v) => setMerchantEntities((prev) => prev.map((e, idx) => idx === i ? { ...e, address: v } : e))}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <MaterialCommunityIcons name="card-account-details-outline" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Aadhaar Number *"
+                        placeholderTextColor={Colors.textMuted}
+                        value={ent.aadhaarHidden ? ent.aadhaarNumber.replace(/\d(?=\d{4})/g, "•") : ent.aadhaarNumber}
+                        onChangeText={(v) => {
+                          const raw = v.replace(/[^0-9]/g, "");
+                          setMerchantEntities((prev) => prev.map((e, idx) => idx === i ? { ...e, aadhaarNumber: formatAadhaarRaw(raw) } : e));
+                        }}
+                        keyboardType="numeric"
+                        maxLength={14}
+                        secureTextEntry={ent.aadhaarHidden}
+                      />
+                      <Pressable onPress={() => setMerchantEntities((prev) => prev.map((e, idx) => idx === i ? { ...e, aadhaarHidden: !e.aadhaarHidden } : e))}>
+                        <Ionicons name={ent.aadhaarHidden ? "eye-outline" : "eye-off-outline"} size={16} color={Colors.textMuted} />
+                      </Pressable>
+                    </View>
+                    <View style={[styles.inputGroup, { borderStyle: "dashed", borderColor: Colors.border }]}>
+                      <MaterialCommunityIcons name="file-certificate-outline" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="GST Number (Optional)"
+                        placeholderTextColor={Colors.textMuted}
+                        value={ent.gstNumber}
+                        onChangeText={(v) => setMerchantEntities((prev) => prev.map((e, idx) => idx === i ? { ...e, gstNumber: formatGst(v) } : e))}
+                        autoCapitalize="characters"
+                        maxLength={15}
+                      />
+                    </View>
+                  </View>
+                ))}
+                {merchantEntities.length < 2 && (
+                  <Pressable style={styles.addEntityBtn} onPress={addMerchantEntity}>
+                    <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.addEntityBtnText}>+ Doosra Business Add Karein</Text>
+                  </Pressable>
+                )}
               </>
             )}
 
@@ -650,6 +786,63 @@ export default function LoginScreen() {
                   </Text>
                 </View>
               </>
+            )}
+
+            {/* ===== DRIVER MULTI-VEHICLE ===== */}
+            {selectedRole === "driver" && (
+              <View style={{ marginBottom: 4 }}>
+                <View style={styles.entitySectionHeader}>
+                  <MaterialCommunityIcons name="truck-plus-outline" size={15} color={Colors.primary} />
+                  <Text style={styles.entitySectionTitle}>Additional Vehicles / Gaadiyaan (Max 2)</Text>
+                </View>
+                {driverVehicles.map((veh, i) => (
+                  <View key={i} style={styles.entityCard}>
+                    <View style={styles.entityCardHead}>
+                      <Text style={styles.entityCardLabel}>Vehicle #{i + 2}</Text>
+                      <Pressable onPress={() => removeDriverVehicle(i)}>
+                        <Ionicons name="close-circle" size={18} color={Colors.error} />
+                      </Pressable>
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <MaterialCommunityIcons name="card-text-outline" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={[styles.input, { textTransform: "uppercase" }]}
+                        placeholder="Vehicle / RC Number * (e.g. GJ01AB1234)"
+                        placeholderTextColor={Colors.textMuted}
+                        value={veh.vehicleNumber}
+                        onChangeText={(v) => setDriverVehicles((prev) => prev.map((x, idx) => idx === i ? { ...x, vehicleNumber: v.toUpperCase() } : x))}
+                        autoCapitalize="characters"
+                        maxLength={12}
+                      />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <MaterialCommunityIcons name="card-account-details-outline" size={16} color={Colors.textMuted} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Aadhaar Number * (Is gaadi ke liye)"
+                        placeholderTextColor={Colors.textMuted}
+                        value={veh.aadhaarHidden ? veh.aadhaarNumber.replace(/\d(?=\d{4})/g, "•") : veh.aadhaarNumber}
+                        onChangeText={(v) => {
+                          const raw = v.replace(/[^0-9]/g, "");
+                          setDriverVehicles((prev) => prev.map((x, idx) => idx === i ? { ...x, aadhaarNumber: formatAadhaarRaw(raw) } : x));
+                        }}
+                        keyboardType="numeric"
+                        maxLength={14}
+                        secureTextEntry={veh.aadhaarHidden}
+                      />
+                      <Pressable onPress={() => setDriverVehicles((prev) => prev.map((x, idx) => idx === i ? { ...x, aadhaarHidden: !x.aadhaarHidden } : x))}>
+                        <Ionicons name={veh.aadhaarHidden ? "eye-outline" : "eye-off-outline"} size={16} color={Colors.textMuted} />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+                {driverVehicles.length < 2 && (
+                  <Pressable style={styles.addEntityBtn} onPress={addDriverVehicle}>
+                    <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.addEntityBtnText}>+ Doosri Gaadi Add Karein</Text>
+                  </Pressable>
+                )}
+              </View>
             )}
 
             {/* T&C Checkbox — mandatory for merchant and driver */}
@@ -942,6 +1135,56 @@ const styles = StyleSheet.create({
   },
   loginBtnDisabled: {
     opacity: 0.45,
+  },
+  entitySectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  entitySectionTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.primary,
+  },
+  entityCard: {
+    backgroundColor: "#0F0F1A",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 8,
+  },
+  entityCardHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  entityCardLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.primary,
+  },
+  addEntityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary + "50",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  addEntityBtnText: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontFamily: "Inter_600SemiBold",
   },
   merchantBanner: {
     flexDirection: "row",
