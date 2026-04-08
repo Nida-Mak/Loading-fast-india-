@@ -6,6 +6,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Loading-fast-india- # अगर आपके फोल्डर का नाम यही है
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -15,16 +19,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Expo CLI and Dependencies
-        run: |
-          npm install
-          npm install -g expo-cli
+      - name: Install Dependencies
+        run: npm install
 
-      - name: Build APK (Preview)
+      - name: Build Project
         run: npx expo export --platform android
 
-      - name: Upload Build
+      - name: Upload Output
         uses: actions/upload-artifact@v4
         with:
-          name: loading-fast-dist
-          path: dist/
+          name: loading-fast-output
+          path: Loading-fast-india-/dist/
+          
