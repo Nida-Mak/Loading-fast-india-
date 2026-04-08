@@ -1,4 +1,4 @@
-concurrency: name: Loading Fast Build
+name: Loading Fast Build
 on:
   push:
     branches: [ main ]
