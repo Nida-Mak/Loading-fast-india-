@@ -1,1 +1,18 @@
 
+name: Loading Fast Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test Step
+        run: echo "Loading Fast workflow is now working correctly!"
